@@ -1,7 +1,7 @@
 package top.foxball.video.service
 
 import org.springframework.stereotype.Service
-import top.foxball.video.entity.jdbc.User
+import top.foxball.foxskinserver.entity.jdbc.User
 import top.foxball.video.repository.UserRepository
 
 @Service
