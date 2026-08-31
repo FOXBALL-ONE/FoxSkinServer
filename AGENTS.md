@@ -44,3 +44,8 @@ Follow `docs/CONTROLLER_CONVENTIONS.md` and the established style in `UserContro
 - Bind `LocalDateTime` directly for JDBC date-time parameters. Do not pass `Instant` directly to
   `JdbcTemplate`; convert it to the intended local date-time first when integration boundaries require it.
 
+## Entity CRUD Architecture
+
+- CRUD and batch operations must be implemented with entity-specific repositories, services, and controllers.
+- Do not introduce a unified CRUD service, generic management controller, resource-name routed management API,
+  or reflection-based generic entity handling.
