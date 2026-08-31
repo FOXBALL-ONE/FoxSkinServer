@@ -1,4 +1,4 @@
-package top.foxball.shopmall.handler
+package top.foxball.foxskinserver.handler
 
 import org.springframework.http.HttpStatus
 

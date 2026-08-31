@@ -1,50 +1,65 @@
-package top.foxball.shopmall.handler
+package top.foxball.foxskinserver.handler
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.servlet.http.HttpServletRequest
-import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
 import org.springframework.dao.DataAccessException
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.dao.TransientDataAccessException
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.core.AuthenticationException
 import org.springframework.web.HttpRequestMethodNotSupportedException
+import org.springframework.web.HttpMediaTypeNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingRequestHeaderException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.method.annotation.HandlerMethodValidationException
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.multipart.MaxUploadSizeExceededException
 import org.springframework.web.servlet.NoHandlerFoundException
 import org.springframework.web.servlet.resource.NoResourceFoundException
-import top.foxball.shopmall.shared.Response
-import top.foxball.shopmall.shared.ResponseBuilder
-import top.foxball.shopmall.ratelimit.RateLimitUnavailableException
-import top.foxball.shopmall.logging.LiveLogPollLimitException
-import top.foxball.shopmall.logging.LoggingUnavailableException
-import top.foxball.shopmall.service.payMent.PaymentProviderError
-import top.foxball.shopmall.service.payMent.PaymentProviderException
-
+import top.foxball.foxskinserver.shared.Response
+import top.foxball.foxskinserver.shared.ResponseBuilder
+import top.foxball.foxskinserver.config.YggdrasilProperties
 
 /** 全局异常处理：将各类异常转换为统一 [Response] 响应。 */
 @Order(2)
 @RestControllerAdvice
-class GlobalExceptionHandler {
+class GlobalExceptionHandler(
+    private val yggdrasilProperties: YggdrasilProperties = YggdrasilProperties(),
+) {
     private val log = LoggerFactory.getLogger(this.javaClass)
     private val builder = ResponseBuilder()
+
+    /** Yggdrasil 客户端要求错误响应使用 error/errorMessage，而不是站内 Response 包装。 */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException::class)
+    fun onHttpMediaTypeNotSupported(
+        req: HttpServletRequest,
+        ex: HttpMediaTypeNotSupportedException,
+    ): ResponseEntity<*> {
+        if (isYggdrasilRequest(req)) return yggdrasilError(
+            HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+            "Unsupported Media Type",
+            "请求必须使用 application/json",
+        )
+        return builder.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+            .message(ex.message ?: "不支持的媒体类型")
+            .build()
+    }
 
     @ExceptionHandler(HomeRecommendationVersionConflictException::class)
     fun onHomeRecommendationVersionConflictException(
         ex: HomeRecommendationVersionConflictException,
     ): ResponseEntity<Response> {
         data class Response(
-            @param:com.fasterxml.jackson.annotation.JsonProperty("actual_version")
+            @param:JsonProperty("actual_version")
             val actualVersion: Long,
         )
 
@@ -60,7 +75,7 @@ class GlobalExceptionHandler {
         ex: AnnouncementVersionConflictException,
     ): ResponseEntity<Response> {
         data class Response(
-            @param:com.fasterxml.jackson.annotation.JsonProperty("actual_version")
+            @param:JsonProperty("actual_version")
             val actualVersion: Long,
         )
 
@@ -94,6 +109,16 @@ class GlobalExceptionHandler {
             .build()
     }
 
+    /** Yggdrasil 客户端不识别站内 Response 包装，必须返回协议规定的错误字段。 */
+    @ExceptionHandler(YggdrasilException::class)
+    fun onYggdrasilException(ex: YggdrasilException): ResponseEntity<Map<String, String>> {
+        val body = linkedMapOf("error" to ex.error, "errorMessage" to ex.message)
+        if (ex.causeMessage.isNotBlank()) body["cause"] = ex.causeMessage
+        val response = ResponseEntity.status(ex.httpStatus)
+        if (ex.retryAfterSeconds > 0) response.header("Retry-After", ex.retryAfterSeconds.toString())
+        return response.body(body)
+    }
+
     @ExceptionHandler(OrderProcessingException::class)
     fun onOrderProcessingException(ex: OrderProcessingException): ResponseEntity<Response> {
         return builder.status(ex.status)
@@ -117,23 +142,6 @@ class GlobalExceptionHandler {
             .build()
     }
 
-    @ExceptionHandler(PaymentProviderException::class)
-    fun onPaymentProviderException(ex: PaymentProviderException): ResponseEntity<Response> = when (ex.error) {
-        PaymentProviderError.INVALID_REQUEST, PaymentProviderError.SIGNATURE_VERIFICATION ->
-            builder.badRequest().message(ex.message).build()
-        PaymentProviderError.PAYMENT_NOT_FOUND -> builder.notFound().message(ex.message).build()
-        PaymentProviderError.CONFLICT, PaymentProviderError.UNSUPPORTED_OPERATION ->
-            builder.status(org.springframework.http.HttpStatus.CONFLICT).message(ex.message).build()
-        PaymentProviderError.RATE_LIMITED -> builder.tooManyRequests().retryAfter(1).message(ex.message).build()
-        PaymentProviderError.AUTHENTICATION,
-        PaymentProviderError.TEMPORARILY_UNAVAILABLE ->
-            builder.serviceUnavailable().retryAfter(1).message(ex.message).build()
-        PaymentProviderError.UNKNOWN -> if (ex.retryable) {
-            builder.serviceUnavailable().retryAfter(1).message(ex.message).build()
-        } else {
-            builder.exception().message(ex.message).build()
-        }
-    }
 
     @ExceptionHandler(AccessDeniedException::class)
     fun onAccessDeniedException(ex: AccessDeniedException): ResponseEntity<Response> {
@@ -151,14 +159,27 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
-    fun onHttpRequestMethodNotSupportedException(ex: HttpRequestMethodNotSupportedException): ResponseEntity<Response> {
+    fun onHttpRequestMethodNotSupportedException(
+        req: HttpServletRequest,
+        ex: HttpRequestMethodNotSupportedException,
+    ): ResponseEntity<*> {
+        if (isYggdrasilRequest(req)) return yggdrasilError(
+            HttpStatus.METHOD_NOT_ALLOWED,
+            "MethodNotAllowedException",
+            "不支持的请求方法。",
+        )
         return builder.badRequest()
             .message("Method \"${ex.method}\" is not supported on this endpoint.")
             .build()
     }
 
     @ExceptionHandler(NoResourceFoundException::class, NoHandlerFoundException::class)
-    fun onNoResourceOrHandlerFoundException(): ResponseEntity<Response> {
+    fun onNoResourceOrHandlerFoundException(req: HttpServletRequest): ResponseEntity<*> {
+        if (isYggdrasilRequest(req)) return yggdrasilError(
+            HttpStatus.NOT_FOUND,
+            "NotFoundOperationException",
+            "请求的接口不存在。",
+        )
         return builder.notFound().build()
     }
 
@@ -177,7 +198,15 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException::class)
-    fun onMethodArgumentTypeMismatchException(ex: MethodArgumentTypeMismatchException): ResponseEntity<Response> {
+    fun onMethodArgumentTypeMismatchException(
+        req: HttpServletRequest,
+        ex: MethodArgumentTypeMismatchException,
+    ): ResponseEntity<*> {
+        if (isYggdrasilRequest(req)) return yggdrasilError(
+            HttpStatus.BAD_REQUEST,
+            "IllegalArgumentException",
+            "请求参数格式错误。",
+        )
         return builder.badRequest()
             .message("Parameter \"${ex.parameter.parameterName}\" type mismatch. Expected ${ex.requiredType}.")
             .build()
@@ -205,18 +234,14 @@ class GlobalExceptionHandler {
             .build()
     }
 
-    @ExceptionHandler(ConstraintViolationException::class)
-    fun onConstraintViolationException(ex: ConstraintViolationException): ResponseEntity<Response> {
-        val detail = ex.constraintViolations.joinToString("; ") { violation ->
-            "${violation.propertyPath}: ${violation.message}"
-        }
-        return builder.badRequest()
-            .message("参数校验失败: $detail")
-            .build()
-    }
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun onHttpMessageNotReadable(ex: HttpMessageNotReadableException): ResponseEntity<Response> {
+    fun onHttpMessageNotReadable(req: HttpServletRequest, ex: HttpMessageNotReadableException): ResponseEntity<*> {
+        if (isYggdrasilRequest(req)) return yggdrasilError(
+            HttpStatus.BAD_REQUEST,
+            "IllegalArgumentException",
+            "请求体必须是合法 JSON",
+        )
         return builder.badRequest()
             .message("请求体格式错误或必填字段缺失")
             .build()
@@ -224,7 +249,7 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException::class)
     fun onMaxUploadSizeExceededException(): ResponseEntity<Response> {
-        return builder.status(org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE)
+        return builder.status(HttpStatus.PAYLOAD_TOO_LARGE)
             .message("Uploaded file exceeds the configured size limit.")
             .build()
     }
@@ -246,36 +271,11 @@ class GlobalExceptionHandler {
             .build()
     }
 
-    @ExceptionHandler(RateLimitUnavailableException::class)
-    fun onRateLimitUnavailableException(ex: RateLimitUnavailableException): ResponseEntity<Response> {
-        log.error("Rate-limit configuration is unavailable", ex)
-        return builder.serviceUnavailable()
-            .retryAfter(1)
-            .message("系统繁忙，请稍后重试")
-            .build()
-    }
-
-    @ExceptionHandler(LoggingUnavailableException::class)
-    fun onLoggingUnavailableException(ex: LoggingUnavailableException): ResponseEntity<Response> {
-        log.error("Logging configuration is unavailable", ex)
-        return builder.serviceUnavailable()
-            .retryAfter(1)
-            .message("日志设置暂时不可用，请稍后重试")
-            .build()
-    }
-
-    @ExceptionHandler(LiveLogPollLimitException::class)
-    fun onLiveLogPollLimitException(ex: LiveLogPollLimitException): ResponseEntity<Response> {
-        return builder.tooManyRequests()
-            .retryAfter(ex.retryAfterSeconds)
-            .message("实时日志连接过多，请稍后重试")
-            .build()
-    }
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
     fun onOptimisticLockingFailureException(ex: ObjectOptimisticLockingFailureException): ResponseEntity<Response> {
         log.warn("Optimistic locking conflict: {}", ex.message)
-        return builder.status(org.springframework.http.HttpStatus.CONFLICT)
+        return builder.status(HttpStatus.CONFLICT)
             .message("数据已被其他操作更新，请刷新后重试")
             .build()
     }
@@ -295,7 +295,7 @@ class GlobalExceptionHandler {
             else -> null
         }
         if (message != null) {
-            return builder.status(org.springframework.http.HttpStatus.CONFLICT).message(message).build()
+            return builder.status(HttpStatus.CONFLICT).message(message).build()
         }
         log.error("Unhandled data integrity violation", ex)
         return builder.exception().build()
@@ -312,4 +312,18 @@ class GlobalExceptionHandler {
         log.error("Got an exception while process request: {}", req.requestURI, ex)
         return builder.exception().build()
     }
+
+    /** Yggdrasil 路由不能混用站内统一响应，且需要兼容反向代理的 context-path。 */
+    private fun isYggdrasilRequest(req: HttpServletRequest): Boolean {
+        val apiPath = yggdrasilProperties.apiPath.trimEnd('/').ifEmpty { "/" }
+        val requestPath = req.requestURI.removePrefix(req.contextPath).trimEnd('/').ifEmpty { "/" }
+        return requestPath == apiPath || requestPath.startsWith("$apiPath/")
+    }
+
+    private fun yggdrasilError(
+        status: HttpStatus,
+        error: String,
+        message: String,
+    ): ResponseEntity<Map<String, String>> = ResponseEntity.status(status)
+        .body(linkedMapOf("error" to error, "errorMessage" to message))
 }

@@ -9,7 +9,20 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   devServer:{
     host:"0.0.0.0",
-    port: 8048
+    port: 7048
+  },
+  runtimeConfig: {
+    public: {
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api'
+    }
+  },
+  nitro: {
+    devProxy: {
+      '/api': {
+        target: process.env.NUXT_DEV_API_TARGET || 'http://127.0.0.1:8080',
+        changeOrigin: true
+      }
+    }
   },
   modules: [
     '@nuxt/eslint',

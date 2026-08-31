@@ -1,4 +1,4 @@
-package top.foxball.shopmall.service.impl
+package top.foxball.foxskinserver.service.impl
 
 import org.springframework.stereotype.Service
 import org.springframework.data.domain.Page
@@ -7,18 +7,17 @@ import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.util.UriComponentsBuilder
-import top.foxball.shopmall.config.FileProperties
-import top.foxball.shopmall.entity.jdbc.StoredFile
-import top.foxball.shopmall.handler.ForbiddenException
-import top.foxball.shopmall.handler.ParamErrorException
-import top.foxball.shopmall.handler.ResourceNotFoundException
-import top.foxball.shopmall.repository.ProductRepository
-import top.foxball.shopmall.repository.StoredFileRepository
-import top.foxball.shopmall.service.DownloadableFile
-import top.foxball.shopmall.service.FileDetails
-import top.foxball.shopmall.service.FileLinkSigner
-import top.foxball.shopmall.service.FileService
-import top.foxball.shopmall.service.SUPPORT_TICKET_DOWNLOAD_SCOPE
+import top.foxball.foxskinserver.config.FileProperties
+import top.foxball.foxskinserver.entity.jdbc.StoredFile
+import top.foxball.foxskinserver.handler.ForbiddenException
+import top.foxball.foxskinserver.handler.ParamErrorException
+import top.foxball.foxskinserver.handler.ResourceNotFoundException
+import top.foxball.foxskinserver.repository.StoredFileRepository
+import top.foxball.foxskinserver.service.DownloadableFile
+import top.foxball.foxskinserver.service.FileDetails
+import top.foxball.foxskinserver.service.FileLinkSigner
+import top.foxball.foxskinserver.service.FileService
+import top.foxball.foxskinserver.service.SUPPORT_TICKET_DOWNLOAD_SCOPE
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -32,6 +31,7 @@ import java.time.ZoneOffset
 import java.util.HexFormat
 import java.util.Locale
 import java.util.UUID
+import kotlin.collections.map
 
 /**
  * 基于本地文件系统的文件服务实现。
@@ -41,7 +41,6 @@ import java.util.UUID
 @Service
 class FileServiceImpl(
     private val fileRepository: StoredFileRepository,
-    private val productRepository: ProductRepository,
     private val properties: FileProperties,
     private val linkSigner: FileLinkSigner,
 ) : FileService {
@@ -150,12 +149,7 @@ class FileServiceImpl(
         val files = fileRepository.findAllByOwnerIdInOrderByCreatedAtAsc(distinctOwnerIds)
         if (files.isEmpty()) return
 
-        val referencedProductImageIds = productRepository.findAllImageUrls()
-            .mapNotNull { PRODUCT_IMAGE_FILE_ID_PATTERN.find(it)?.groupValues?.get(1) }
-            .mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-            .toSet()
-        val deletableFiles = files.filterNot { it.id in referencedProductImageIds }
-        if (deletableFiles.isNotEmpty()) deleteStoredFiles(deletableFiles)
+        deleteStoredFiles(files)
     }
 
     private fun validateUploadBatch(files: List<MultipartFile>) {
@@ -395,8 +389,5 @@ class FileServiceImpl(
         const val DELETION_STAGING_DIRECTORY = ".deleting"
         const val LOCAL_STORAGE = "local"
         val EXTENSION_PATTERN = Regex("[A-Za-z0-9]{1,10}")
-        val PRODUCT_IMAGE_FILE_ID_PATTERN = Regex(
-            "(?:^|/)api/product-images/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:[?#]|$)",
-        )
     }
 }

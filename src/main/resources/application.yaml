@@ -1,3 +1,248 @@
 spring:
   application:
     name: FoxSkinServer
+  # 从项目根目录的 .env 加载环境变量（按 properties 格式解析；文件缺失时不报错）。
+  # .env 不提交到 git；真实 OS/Docker 环境变量优先级高于 .env（12-factor）。
+  config:
+    import: "optional:file:.env[.properties]"
+  servlet:
+    multipart:
+      max-file-size: "${FILE_MAX_FILE_SIZE:100MB}"
+      max-request-size: "${FILE_MAX_REQUEST_SIZE:500MB}"
+  datasource:
+    url: "${DB_URL:jdbc:postgresql://localhost:5432/shopmall}"
+    username: "${DB_USERNAME:postgres}"
+    password: "${DB_PASSWORD:postgres}"
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      # update=开发自动建表 / validate=生产校验 / none
+      ddl-auto: "${DB_DDL:update}"
+    open-in-view: false
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 0
+  data:
+    redis:
+      host: "${REDIS_HOST:localhost}"
+      port: "${REDIS_PORT:6379}"
+      password: "${REDIS_PASSWORD:}"
+      database: 7
+  mail:
+    host: "${MAIL_HOST:}"
+    port: "${MAIL_PORT:587}"
+    username: "${MAIL_USERNAME:}"
+    password: "${MAIL_PASSWORD:}"
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+server:
+  port: "${SERVER_PORT:1562}"
+
+# 管理端通过应用内的 Actuator 端点对象汇总运行指标；Web 侧只开放无敏感明细的探活与版本入口。
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"
+  endpoint:
+    health:
+      show-details: never
+      show-components: never
+
+# RedisCleanupConfig 读取：启动时是否清空 Redis（本地/测试用，生产必须设 false，否则会 flushDb 清空 stream/消费组/幂等键）
+redis:
+  clear-on-startup: "${REDIS_CLEAR_ON_STARTUP:false}"
+
+shopmall:
+  announcement:
+    time-zone: "${ANNOUNCEMENT_TIME_ZONE:Asia/Shanghai}"
+  home-recommendation:
+    time-zone: "${HOME_RECOMMENDATION_TIME_ZONE:Asia/Shanghai}"
+    cache-ttl-seconds: "${HOME_RECOMMENDATION_CACHE_TTL_SECONDS:60}"
+    lifecycle-delay-ms: "${HOME_RECOMMENDATION_LIFECYCLE_DELAY_MS:60000}"
+  product-metadata:
+    # 系统类型、属性和基础分类初始化必须由部署环境显式开启
+    enabled: "${PRODUCT_METADATA_INITIALIZATION_ENABLED:false}"
+  mock-data:
+    # 本地演示数据：显式开启后在应用启动完成时写入；按哨兵账号幂等执行，生产必须保持关闭
+    enabled: "${MOCK_DATA_ENABLED:false}"
+    # 所有模拟管理员和客户共用的明文密码，落库前会使用全局 PasswordEncoder 哈希
+    password: "${MOCK_DATA_PASSWORD:MockData123!}"
+  security:
+    jwt:
+      # 生产环境务必通过 .env 覆盖为足够长的随机串；access 与 refresh 共用同一密钥，以 typ claim 区分
+      secret: "${JWT_SECRET:dev-secret-do-not-use-in-prod-please-override-via-JWT_SECRET}"
+      # 访问令牌：短有效期（秒），默认 30min，无状态、仅验签名+过期+类型，泄漏窗口收敛
+      access:
+        ttl-seconds: "${JWT_ACCESS_TTL_SECONDS:1800}"
+      # 刷新令牌：长有效期（秒），默认 7d；落 Redis，原子轮换 + grace 重试 + 复用检测
+      refresh:
+        ttl-seconds: "${JWT_REFRESH_TTL_SECONDS:604800}"
+        # true=每次刷新签发新 refresh 并作废旧 token（推荐）；false=刷新只换 access（复用检测失效）
+        rotate: "${JWT_REFRESH_ROTATE:true}"
+        # true=超 grace / 跨 UA 的 USED 再现即撤销整族（推荐）
+        reuse-detect: "${JWT_REFRESH_REUSE_DETECT:true}"
+        # USED token 在此窗口内再现视为合法重试（响应丢失重发 / 并发第二方），窗口外才判被盗
+        grace-seconds: "${JWT_REFRESH_GRACE_SECONDS:30}"
+        cookie:
+          name: "${JWT_REFRESH_COOKIE_NAME:refresh_token}"
+          # 留空=不写 domain（浏览器用当前 host）；同注册域多子域可配 .shopmall.com
+          domain: "${JWT_REFRESH_COOKIE_DOMAIN:}"
+          path: "${JWT_REFRESH_COOKIE_PATH:/api/auth}"
+          # 生产只走 HTTPS；本地 http 调试必须设 false，否则浏览器不回传 cookie
+          secure: "${JWT_REFRESH_COOKIE_SECURE:true}"
+          http-only: "${JWT_REFRESH_COOKIE_HTTP_ONLY:true}"
+          # 同注册域=Lax；跨注册域（不同 eTLD+1）必须 None 且 secure=true。详见 docs/dual-token-auth-design.md §6.2
+          same-site: "${JWT_REFRESH_COOKIE_SAME_SITE:Lax}"
+      # 开发环境固定 JWT 令牌：开启后可用一张固定 token 免登录调试（仅本地！生产切勿置 true）
+      dev:
+        # 固定令牌：开启会同时落库下面的默认管理员，并把令牌绑定到该管理员
+        fixed-token:
+          # 是否启用固定令牌旁路（默认关闭）
+          enabled: "${DEV_FIXED_TOKEN_ENABLED:false}"
+          # 固定令牌的 jti；生成端与识别端必须一致，轮换时改它即可（合法 UUID）
+          jti: "${DEV_FIXED_TOKEN_JTI:00000000-0000-0000-0000-000000000000}"
+          # 有效期（秒），默认 10 年，避免频繁重发
+          ttl-seconds: "${DEV_FIXED_TOKEN_TTL_SECONDS:315360000}"
+        # 默认管理员：开启固定令牌时每次启动确保存在，令牌即绑定到该管理员（仅本地！）
+        default-admin:
+          username: "${DEV_ADMIN_USERNAME:admin}"
+          # 明文密码，存储前会哈希；仅用于本地默认账号
+          password: "${DEV_ADMIN_PASSWORD:admin}"
+          email: "${DEV_ADMIN_EMAIL:admin}"
+  yggdrasil:
+    # authlib-injector 使用的 Yggdrasil 根路径；生产环境请配合 HTTPS 反向代理。
+    api-path: "${YGGDRASIL_API_PATH:/api/yggdrasil}"
+    server-name: "${YGGDRASIL_SERVER_NAME:FoxSkinServer}"
+    implementation-name: "${YGGDRASIL_IMPLEMENTATION_NAME:FoxSkinServer}"
+    implementation-version: "${YGGDRASIL_IMPLEMENTATION_VERSION:0.0.1}"
+    require-verified: "${YGGDRASIL_REQUIRE_VERIFIED:false}"
+    skin-domains: "${YGGDRASIL_SKIN_DOMAINS:localhost}"
+    texture-base-url: "${YGGDRASIL_TEXTURE_BASE_URL:}"
+    # 生产必须注入至少 4096 位 RSA PEM 私钥，开发环境留空会生成临时 4096 位密钥。
+    private-key-pem: "${YGGDRASIL_PRIVATE_KEY_PEM:}"
+    token-expire-seconds: "${YGGDRASIL_TOKEN_EXPIRE_SECONDS:259200}"
+    refresh-expire-seconds: "${YGGDRASIL_REFRESH_EXPIRE_SECONDS:604800}"
+    join-expire-seconds: "${YGGDRASIL_JOIN_EXPIRE_SECONDS:120}"
+    profile-search-max: "${YGGDRASIL_PROFILE_SEARCH_MAX:5}"
+    # 认证/登出账号节流间隔；参照 Blessing Skin 默认 1000ms，设为 0 可关闭（不建议生产关闭）。
+    throttle-interval-millis: "${YGGDRASIL_THROTTLE_INTERVAL_MILLIS:1000}"
+  file:
+    storage-path: "${FILE_STORAGE_PATH:./storage}"
+    base-url: "${FILE_BASE_URL:http://localhost:8080}"
+    signing-secret: "${FILE_SIGNING_SECRET:dev-file-signing-secret-do-not-use-in-prod}"
+    download-token-ttl-seconds: "${FILE_DOWNLOAD_LINK_TTL_SECONDS:300}"
+    max-batch-size: "${FILE_MAX_BATCH_SIZE:20}"
+    max-file-size-bytes: "${FILE_MAX_FILE_SIZE_BYTES:104857600}"
+    signing:
+      public-ttl-seconds: "${FILE_SIGN_PUBLIC_TTL:60}"
+      user-ttl-seconds: "${FILE_SIGN_USER_TTL:300}"
+      admin-ttl-seconds: "${FILE_SIGN_ADMIN_TTL:180}"
+      order-ttl-seconds: "${FILE_SIGN_ORDER_TTL:300}"
+  mail:
+    verification:
+      # 发件人地址，留空则回退到 spring.mail.username
+      from: "${MAIL_FROM:}"
+    order:
+      # 订单邮件默认沿用 MAIL_FROM；可单独设置主题前缀。
+      from: "${MAIL_FROM:}"
+      subject-prefix: "${ORDER_MAIL_SUBJECT_PREFIX:PELISSA}"
+  order:
+    payment-timeout-minutes: "${ORDER_PAYMENT_TIMEOUT_MINUTES:30}"
+    idempotency-ttl-seconds: "${ORDER_IDEMPOTENCY_TTL:600}"
+    stream-max-len: "${ORDER_STREAM_MAX_LEN:10000}"
+    outbox-max-attempts: "${ORDER_OUTBOX_MAX_ATTEMPTS:5}"
+    outbox-ack-sla-seconds: "${ORDER_OUTBOX_ACK_SLA:300}"
+    outbox-retention-days: "${ORDER_OUTBOX_RETENTION_DAYS:7}"
+    max-quantity-per-line: "${ORDER_SINGLE_SKU_LIMIT:99}"
+    creation-window-minutes: "${ORDER_CREATION_WINDOW_MINUTES:10}"
+    idempotency-key-ttl-minutes: "${ORDER_KEY_TTL_MINUTES:10}"
+  support-ticket:
+    create-rate-limit: "${SUPPORT_TICKET_CREATE_RATE_LIMIT:5}"
+    create-rate-window-seconds: "${SUPPORT_TICKET_CREATE_RATE_WINDOW_SECONDS:600}"
+    message-rate-limit: "${SUPPORT_TICKET_MESSAGE_RATE_LIMIT:30}"
+    message-rate-window-seconds: "${SUPPORT_TICKET_MESSAGE_RATE_WINDOW_SECONDS:60}"
+    idempotency-ttl-seconds: "${SUPPORT_TICKET_IDEMPOTENCY_TTL_SECONDS:900}"
+    max-files-per-message: "${SUPPORT_TICKET_MAX_FILES_PER_MESSAGE:10}"
+    max-attachment-bytes-per-message: "${SUPPORT_TICKET_MAX_ATTACHMENT_BYTES_PER_MESSAGE:52428800}"
+    max-message-request-bytes: "${SUPPORT_TICKET_MAX_MESSAGE_REQUEST_BYTES:62914560}"
+    max-attachments-per-ticket: "${SUPPORT_TICKET_MAX_ATTACHMENTS_PER_TICKET:100}"
+    max-attachment-bytes-per-ticket: "${SUPPORT_TICKET_MAX_ATTACHMENT_BYTES_PER_TICKET:536870912}"
+    max-attachments-per-customer: "${SUPPORT_TICKET_MAX_ATTACHMENTS_PER_CUSTOMER:500}"
+    max-attachment-bytes-per-customer: "${SUPPORT_TICKET_MAX_ATTACHMENT_BYTES_PER_CUSTOMER:2147483648}"
+  rate-limit:
+    enabled: "${RATE_LIMIT_ENABLED:true}"
+    # 仅用于部署/测试时完全卸载过滤器；运行时开关由 Redis 和管理端控制。
+    filter-enabled: "${RATE_LIMIT_FILTER_ENABLED:true}"
+    window-seconds: 60
+    default-authenticated-requests-per-minute: "${RATE_LIMIT_AUTHENTICATED_REQUESTS_PER_MINUTE:10}"
+    default-anonymous-requests-per-minute: "${RATE_LIMIT_ANONYMOUS_REQUESTS_PER_MINUTE:5}"
+    identity-hash-secret: "${RATE_LIMIT_IDENTITY_HASH_SECRET:}"
+    default-excluded-paths: []
+    trusted-proxy-cidrs: []
+  logging:
+    storage-path: "${LOG_STORAGE_PATH:./logs}"
+    time-zone: "${LOG_TIME_ZONE:Asia/Shanghai}"
+    instance-id: "${LOG_INSTANCE_ID:local}"
+    max-file-size: 10MB
+    max-record-size: 256KB
+    retention-days: "${LOG_RETENTION_DAYS:30}"
+    live-buffer-events: "${LOG_LIVE_BUFFER_EVENTS:5000}"
+    live-buffer-bytes: "${LOG_LIVE_BUFFER_BYTES:16777216}"
+    live-response-bytes: "${LOG_LIVE_RESPONSE_BYTES:2097152}"
+    live-batch-window-millis: "${LOG_LIVE_BATCH_WINDOW_MILLIS:100}"
+    live-max-wait-seconds: 20
+    live-max-node-polls: "${LOG_LIVE_MAX_NODE_POLLS:50}"
+    live-max-admin-polls: "${LOG_LIVE_MAX_ADMIN_POLLS:2}"
+    async-queue-events: "${LOG_ASYNC_QUEUE_EVENTS:4096}"
+    async-queue-bytes: "${LOG_ASYNC_QUEUE_BYTES:33554432}"
+    file-queue-events: "${LOG_FILE_QUEUE_EVENTS:4096}"
+    file-queue-bytes: "${LOG_FILE_QUEUE_BYTES:33554432}"
+    file-batch-events: "${LOG_FILE_BATCH_EVENTS:128}"
+    file-flush-interval-millis: "${LOG_FILE_FLUSH_INTERVAL_MILLIS:100}"
+    file-failure-backoff-millis: "${LOG_FILE_FAILURE_BACKOFF_MILLIS:1000}"
+    shutdown-timeout-millis: "${LOG_SHUTDOWN_TIMEOUT_MILLIS:5000}"
+    reconcile-interval-millis: "${LOG_RECONCILE_INTERVAL_MILLIS:5000}"
+    fail-on-file-error: "${LOG_FAIL_ON_FILE_ERROR:true}"
+    default-root-level: "${LOG_ROOT_LEVEL:INFO}"
+    default-output-template: "{timestamp} [{level}] [{thread}] {logger} request_id={request_id} - {message}{exception}"
+  logistics:
+    webhook-max-body-bytes: "${LOGISTICS_WEBHOOK_MAX_BODY_BYTES:1048576}"
+    # 轮询调度总开关；首期默认 true 以驱动 MANUAL 之外的轮询适配器
+    polling-enabled: "${LOGISTICS_POLLING_ENABLED:true}"
+    poll-initial-delay-seconds: "${LOGISTICS_POLL_INITIAL_DELAY:900}"
+    poll-max-delay-seconds: "${LOGISTICS_POLL_MAX_DELAY:21600}"
+    poll-lease-seconds: "${LOGISTICS_POLL_LEASE_SECONDS:120}"
+    track-max-consecutive-failures: "${LOGISTICS_TRACK_MAX_CONSECUTIVE_FAILURES:5}"
+    stale-delivery-days: "${LOGISTICS_STALE_DELIVERY_DAYS:30}"
+    raw-track-retention-days: "${LOGISTICS_RAW_TRACK_RETENTION_DAYS:30}"
+    poll-scheduler-delay-ms: "${LOGISTICS_POLL_SCHEDULER_DELAY_MS:60000}"
+    reconciliation-delay-ms: "${LOGISTICS_RECONCILIATION_DELAY_MS:60000}"
+    carriers:
+      4px:
+        enabled: "${CARRIER_4PX_ENABLED:false}"
+        webhook-secret: "${CARRIER_4PX_WEBHOOK_SECRET:}"
+        api-key: "${CARRIER_4PX_API_KEY:}"
+      yunexpress:
+        enabled: "${CARRIER_YUN_ENABLED:false}"
+        webhook-secret: "${CARRIER_YUN_WEBHOOK_SECRET:}"
+        api-key: "${CARRIER_YUN_API_KEY:}"
+      track17:
+        enabled: "${CARRIER_17TRACK_ENABLED:false}"
+        webhook-secret: "${CARRIER_17TRACK_WEBHOOK_SECRET:}"
+        api-key: "${CARRIER_17TRACK_API_KEY:}"
+
+stripe:
+  public-key: "${STRIPE_PUBLIC_KEY:}"
+  secret-key: "${STRIPE_SECRET_KEY:}"
+  webhook-secret: "${STRIPE_WEBHOOK_SECRET:${WEBHOOK_SECRET_SNAPSHOT:}}"
+  webhook-max-body-bytes: "${STRIPE_WEBHOOK_MAX_BODY_BYTES:262144}"
+  webhook:
+    endpoint-url: "${STRIPE_WEBHOOK_URL:${WEBHOOK_SECRET_SNAPSHOT_URL:}}"
+  checkout:
+    storefront-base-url: "${STOREFRONT_BASE_URL:http://localhost:8088}"

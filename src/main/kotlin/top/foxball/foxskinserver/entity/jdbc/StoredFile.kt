@@ -1,4 +1,4 @@
-package top.foxball.shopmall.entity.jdbc
+package top.foxball.foxskinserver.entity.jdbc
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity

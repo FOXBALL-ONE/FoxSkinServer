@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.LocalDateTime
+import java.util.UUID
 
 /** Minecraft 玩家角色实体。 */
 @Entity
@@ -21,6 +22,10 @@ class Player(
     /** 所属用户主键。 */
     @Column(name = "uid", nullable = false)
     var userId: Long = 0,
+
+    /** Minecraft Profile UUID，由应用侧生成。 */
+    @Column(name = "uuid", nullable = false, unique = true)
+    var uuid: UUID = UUID.randomUUID(),
 
     /** Minecraft 玩家名称。 */
     @Column(nullable = false, length = 50)

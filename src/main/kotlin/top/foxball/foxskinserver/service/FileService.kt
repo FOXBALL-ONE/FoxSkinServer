@@ -1,9 +1,9 @@
-package top.foxball.shopmall.service
+package top.foxball.foxskinserver.service
 
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.web.multipart.MultipartFile
-import top.foxball.shopmall.entity.jdbc.StoredFile
+import top.foxball.foxskinserver.entity.jdbc.StoredFile
 import java.nio.file.Path
 import java.time.LocalDateTime
 import java.util.UUID

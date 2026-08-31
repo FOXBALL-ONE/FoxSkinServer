@@ -15,8 +15,9 @@ export interface HttpRequestOptions<T> extends Omit<FetchOptions<"json">, "baseU
     businessErrorStatuses?: number[];
 }
 
-const TOKEN_COOKIE = "chat_auth_token";
+const TOKEN_COOKIE = "foxskin_access_token";
 const LOGIN_PATH = "/login";
+const REFRESH_PATH = "/auth/refresh";
 const UNAUTHORIZED_STATUS = 401;
 const FORBIDDEN_STATUS = 403;
 
@@ -112,6 +113,7 @@ export const useHttp = (baseURL?: string) => {
     });
 
     let sessionCleanupPromise: Promise<void> | null = null;
+    let refreshPromise: Promise<boolean> | null = null;
 
     const clearSession = async () => {
         authToken.value = null;
@@ -125,6 +127,26 @@ export const useHttp = (baseURL?: string) => {
             });
         }
         await sessionCleanupPromise;
+    };
+
+    const refreshAccessToken = async (): Promise<boolean> => {
+        if (!refreshPromise) {
+            refreshPromise = (async () => {
+                const response = await http<ApiResult<{ access_token?: unknown }>>(REFRESH_PATH, {
+                    method: "POST",
+                    headers: {Accept: "application/json"},
+                });
+                const status = responseStatus(response);
+                if (!isSuccess(status)) {
+                    throw createError({statusCode: status, statusMessage: responseMessage(response), data: response});
+                }
+                persistAccessToken(response.data, authToken);
+                return Boolean(authToken.value);
+            })().finally(() => {
+                refreshPromise = null;
+            });
+        }
+        return refreshPromise;
     };
 
     const requestBase = async <TResponse, TPayload = Record<string, unknown>>(
@@ -154,7 +176,7 @@ export const useHttp = (baseURL?: string) => {
             requestHeaders.set("Authorization", authorization);
         }
 
-        try {
+        const execute = async () => {
             const response = await http<ApiResult<TResponse>>(isAbsoluteUrl(url) ? url : url, {
                 method,
                 ...fetchOptions,
@@ -168,8 +190,27 @@ export const useHttp = (baseURL?: string) => {
             }
             persistAccessToken(response.data, authToken);
             return response;
+        };
+
+        try {
+            return await execute();
         } catch (error: unknown) {
             const failure = requestFailure(error);
+            const canRefresh = failure.status === UNAUTHORIZED_STATUS
+                && !businessErrorStatuses.includes(failure.status)
+                && !url.endsWith(REFRESH_PATH)
+                && !url.endsWith("/auth/login");
+            if (canRefresh) {
+                try {
+                    if (await refreshAccessToken()) {
+                        requestHeaders.set("Authorization", normalizeAuthorization(authToken.value));
+                        return await execute();
+                    }
+                } catch (refreshError: unknown) {
+                    await clearSession();
+                    throw toRequestError(requestFailure(refreshError));
+                }
+            }
             if (failure.status === UNAUTHORIZED_STATUS && !businessErrorStatuses.includes(failure.status)) {
                 await clearSession();
             }

@@ -1,4 +1,4 @@
-package top.foxball.shopmall.controller
+package top.foxball.foxskinserver.controller
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.validation.constraints.Max
@@ -24,11 +24,11 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RequestPart
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
-import top.foxball.shopmall.handler.ResourceNotFoundException
-import top.foxball.shopmall.service.FileService
-import top.foxball.shopmall.service.SUPPORT_TICKET_DOWNLOAD_SCOPE
-import top.foxball.shopmall.shared.Response
-import top.foxball.shopmall.shared.ResponseBuilder
+import top.foxball.foxskinserver.handler.ResourceNotFoundException
+import top.foxball.foxskinserver.service.FileService
+import top.foxball.foxskinserver.service.SUPPORT_TICKET_DOWNLOAD_SCOPE
+import top.foxball.foxskinserver.shared.Response
+import top.foxball.foxskinserver.shared.ResponseBuilder
 import java.nio.charset.StandardCharsets
 import java.time.LocalDateTime
 import java.util.UUID

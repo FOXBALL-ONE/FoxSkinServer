@@ -1,4 +1,4 @@
-package top.foxball.video.shared
+package top.foxball.foxskinserver.shared
 
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
