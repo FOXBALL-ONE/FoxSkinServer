@@ -6,4 +6,5 @@ import top.foxball.foxskinserver.entity.jdbc.User
 interface UserRepository : JpaRepository<User, Long> {
     fun findUserById(id: Long): User? = findById(id).orElse(null)
     fun findByEmail(email: String): User?
+    fun findByUsername(username: String): User?
 }

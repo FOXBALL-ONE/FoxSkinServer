@@ -9,6 +9,7 @@ import top.foxball.foxskinserver.entity.jdbc.User
 data class AuthenticatedUser(
     val userId: Long,
     val email: String,
+    val loginUsername: String,
     val nickname: String,
     val permission: Int,
     val verified: Boolean,
@@ -30,6 +31,7 @@ data class AuthenticatedUser(
         fun from(user: User): AuthenticatedUser = AuthenticatedUser(
             userId = requireNotNull(user.id),
             email = user.email,
+            loginUsername = user.username,
             nickname = user.nickname,
             permission = user.permission,
             verified = user.verified,

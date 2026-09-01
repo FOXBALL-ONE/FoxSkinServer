@@ -27,7 +27,11 @@ class User(
     @Column(nullable = false, length = 255)
     var password: String = "",
     
-    /** 用户昵称。 */
+    /** 用户名，用于登录，系统内唯一。 */
+    @Column(nullable = false, unique = true, length = 50)
+    var username: String = "",
+
+    /** 用户昵称，用于展示。 */
     @Column(nullable = false, length = 50)
     var nickname: String = "",
     
@@ -79,11 +83,6 @@ class User(
     @get:Transient
     val uid: Long?
         get() = id
-
-    /** 兼容现有接口的用户名别名，映射到昵称。 */
-    @get:Transient
-    val username: String
-        get() = nickname
 
     /** 判断用户是否拥有管理员权限。 */
     fun isAdmin(): Boolean = permission >= ADMIN

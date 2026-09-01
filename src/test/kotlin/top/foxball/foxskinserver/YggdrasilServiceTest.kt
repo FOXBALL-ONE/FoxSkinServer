@@ -77,7 +77,7 @@ class YggdrasilServiceTest {
     fun `authenticate supports request user and normalizes email`() {
         val users = mock(UserRepository::class.java)
         val passwordEncoder = mock(PasswordEncoder::class.java)
-        val user = User(id = 7, email = "user@example.com", password = "encoded", nickname = "User")
+        val user = User(id = 7, email = "user@example.com", password = "encoded", username = "user", nickname = "User")
         `when`(users.findByEmail("user@example.com")).thenReturn(user)
         `when`(passwordEncoder.matches("secret", "encoded")).thenReturn(true)
         val service = service(users = users, passwordEncoder = passwordEncoder)

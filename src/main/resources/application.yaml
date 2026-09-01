@@ -74,6 +74,17 @@ shopmall:
     # 所有模拟管理员和客户共用的明文密码，落库前会使用全局 PasswordEncoder 哈希
     password: "${MOCK_DATA_PASSWORD:MockData123!}"
   security:
+    default-admin:
+      # 启用后在应用启动时创建默认管理员；同邮箱已存在时不会修改其密码或权限。
+      enabled: "${DEFAULT_ADMIN_ENABLED:false}"
+      # 登录账号使用邮箱格式；启用时必须通过 .env 或 OS 环境变量提供账号和密码。
+      email: "${DEFAULT_ADMIN_EMAIL:}"
+      username: "${DEFAULT_ADMIN_USERNAME:}"
+      fixed-token:
+        # 仅供本地开发使用。配置值即 Authorization: Bearer 后的完整令牌。
+        enabled: "${DEFAULT_ADMIN_FIXED_TOKEN_ENABLED:false}"
+        token: "${DEFAULT_ADMIN_FIXED_TOKEN:}"
+      password: "${DEFAULT_ADMIN_PASSWORD:}"
     jwt:
       # 生产环境务必通过 .env 覆盖为足够长的随机串；access 与 refresh 共用同一密钥，以 typ claim 区分
       secret: "${JWT_SECRET:dev-secret-do-not-use-in-prod-please-override-via-JWT_SECRET}"

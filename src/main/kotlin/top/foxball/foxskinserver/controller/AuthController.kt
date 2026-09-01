@@ -23,7 +23,8 @@ class AuthController(
 ) {
     @PostMapping("/api/auth/login")
     fun login(
-        @RequestParam("email") email: String,
+        @RequestParam("username", required = false) username: String?,
+        @RequestParam("email", required = false) email: String?,
         @RequestParam("password") password: String,
         response: HttpServletResponse
     ): ResponseEntity<Response> {
@@ -33,7 +34,8 @@ class AuthController(
             @param:JsonProperty("expires_in") val expiresIn: Long,
         )
 
-        val tokens = authService.login(email, password)
+        val identifier = username?.takeIf { it.isNotBlank() } ?: email ?: ""
+        val tokens = authService.login(identifier, password)
         response.addHeader("Set-Cookie", refreshCookie(tokens.refreshToken).toString())
         return responseBuilder.ok().data(TokenData(tokens.accessToken, tokens.refreshToken, tokens.expiresIn)).build()
     }
@@ -73,6 +75,7 @@ class AuthController(
         data class UserData(
             @param:JsonProperty("user_id") val userId: Long,
             val email: String,
+            val username: String,
             val nickname: String,
             val permission: Int,
             val verified: Boolean,
@@ -81,6 +84,7 @@ class AuthController(
             UserData(
                 principal.userId,
                 principal.email,
+                principal.loginUsername,
                 principal.nickname,
                 principal.permission,
                 principal.verified

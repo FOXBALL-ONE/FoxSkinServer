@@ -22,8 +22,11 @@ class AuthService(
     private val refreshTokenStore: RefreshTokenStore,
     private val jwtProperties: JwtProperties,
 ) {
-    fun login(email: String, password: String): IssuedTokens {
-        val user = userRepository.findByEmail(email.trim().lowercase()) ?: throw UsernameOrPasswordErrorException()
+    fun login(usernameOrEmail: String, password: String): IssuedTokens {
+        val identifier = usernameOrEmail.trim()
+        val user = userRepository.findByEmail(identifier.lowercase())
+            ?: userRepository.findByUsername(identifier)
+            ?: throw UsernameOrPasswordErrorException()
         if (user.permission == User.BANNED) throw UsernameOrPasswordErrorException()
         if (!passwordEncoder.matches(password, user.password)) throw UsernameOrPasswordErrorException()
         return issue(AuthenticatedUser.from(user))
