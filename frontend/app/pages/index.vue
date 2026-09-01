@@ -1,97 +1,1386 @@
-<script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+<script lang="ts" setup>
+import {computed, onMounted, onUnmounted, ref} from 'vue'
 
-const menuOpen = ref(false)
-const authMode = ref(null)
-const scrolled = ref(false)
-const locale = ref('简体中文')
 const router = useRouter()
+const menuOpen = ref(false)
+const scrolled = ref(false)
+const activeSkin = ref(0)
+const activeFilter = ref('全部')
 
-const navClass = computed(() => ({ 'site-nav--solid': scrolled.value || menuOpen.value }))
-
-const features = [
-  { icon: '◈', title: '管理你的皮肤', description: '上传、预览并整理皮肤与披风，让每一次进入游戏都保持独特。' },
-  { icon: '◎', title: '分享你的衣柜', description: '在皮肤库发现新灵感，与社区玩家分享你最喜欢的造型。' },
-  { icon: '✦', title: '无缝连接游戏', description: '通过 Yggdrasil 外置登录，让离线服务器也能显示真实皮肤。' },
+const skins = [
+  {
+    name: 'Mossbound',
+    cn: '苔原漫游者',
+    creator: 'Lina Park',
+    accent: '#92BE4B',
+    jacket: '#5F7B4A',
+    shirt: '#D4C9A2',
+    hair: '#2A302B'
+  },
+  {
+    name: 'Emberline',
+    cn: '余烬航线',
+    creator: 'Kaito',
+    accent: '#D46647',
+    jacket: '#8D463B',
+    shirt: '#D5A07C',
+    hair: '#362621'
+  },
+  {
+    name: 'Night Shift',
+    cn: '深夜值班',
+    creator: 'mira.exe',
+    accent: '#68A6A0',
+    jacket: '#385A62',
+    shirt: '#A8C8C2',
+    hair: '#20272C'
+  },
 ]
 
-const textureCards = [
-  { name: 'Aurora Scout', author: 'by nova', tone: 'tone-cyan', model: 'classic' },
-  { name: 'Ruby Wanderer', author: 'by ember', tone: 'tone-red', model: 'slim' },
-  { name: 'Moss Keeper', author: 'by fern', tone: 'tone-green', model: 'classic' },
-  { name: 'Moonlit Fox', author: 'by lune', tone: 'tone-violet', model: 'slim' },
+const library = [
+  {name: 'Cedar Scout', creator: 'mochi', category: '自然系', tone: 'cedar', model: 'classic'},
+  {name: 'Solaris', creator: 'akari', category: '冒险系', tone: 'solar', model: 'slim'},
+  {name: 'Deep Current', creator: 'rune', category: '极简系', tone: 'current', model: 'classic'},
+  {name: 'Field Notes', creator: 'yun', category: '自然系', tone: 'field', model: 'slim'},
+  {name: 'Redstone Club', creator: 'sora', category: '冒险系', tone: 'redstone', model: 'classic'},
+  {name: 'Cloud Archive', creator: 'niko', category: '极简系', tone: 'cloud', model: 'slim'},
 ]
 
-function updateScroll() { scrolled.value = window.scrollY > 36 }
-function closeMenu() { menuOpen.value = false }
-function openAuth(mode) {
-  closeMenu()
-  if (mode === 'login') {
-    router.push('/login')
-    return
-  }
-  authMode.value = mode
+const filters = ['全部', '自然系', '冒险系', '极简系']
+const filteredLibrary = computed(() => activeFilter.value === '全部' ? library : library.filter(item => item.category === activeFilter.value))
+const selectedSkin = computed(() => skins[activeSkin.value])
+
+function updateScroll() {
+  scrolled.value = window.scrollY > 24
 }
-function closeAuth() { authMode.value = null }
-function switchAuth() {
-  if (authMode.value === 'login') {
-    authMode.value = 'register'
-    return
-  }
-  closeAuth()
+
+function goLogin() {
+  menuOpen.value = false;
   router.push('/login')
 }
 
-onMounted(() => { updateScroll(); window.addEventListener('scroll', updateScroll, { passive: true }) })
+function goRegister() {
+  menuOpen.value = false;
+  router.push('/login')
+}
+
+onMounted(() => {
+  updateScroll();
+  window.addEventListener('scroll', updateScroll, {passive: true})
+})
 onUnmounted(() => window.removeEventListener('scroll', updateScroll))
 </script>
 
 <template>
   <main class="home-page">
-    <section class="hero" aria-labelledby="hero-title">
-      <div class="hero__backdrop" />
-      <div class="hero__shade" />
-      <nav class="site-nav" :class="navClass" aria-label="主导航">
-        <div class="site-nav__inner">
-          <a class="brand" href="#top" aria-label="FoxSkin 首页" @click="closeMenu"><span class="brand__mark">F</span><span class="brand__text">FoxSkin</span></a>
-          <button class="menu-toggle" type="button" :aria-expanded="menuOpen" aria-controls="primary-menu" aria-label="打开导航菜单" @click="menuOpen = !menuOpen"><span /><span /></button>
-          <div id="primary-menu" class="site-nav__links" :class="{ 'site-nav__links--open': menuOpen }">
-            <a href="#library" @click="closeMenu">皮肤库</a><a href="#features" @click="closeMenu">功能</a><a href="#about" @click="closeMenu">关于</a>
-            <button class="locale-button" type="button" @click="locale = locale === '简体中文' ? 'English' : '简体中文'"><span class="locale-button__globe">◉</span>{{ locale }}</button>
-            <button class="nav-login" type="button" @click="openAuth('login')">登录</button><button class="nav-register" type="button" @click="openAuth('register')">注册</button>
+    <section id="top" class="hero">
+      <div class="hero__image"/>
+      <div class="hero__veil"/>
+      <header :class="{ 'nav--solid': scrolled || menuOpen }" class="nav">
+        <div class="nav__inner">
+          <a aria-label="FoxSkin 首页" class="wordmark" href="#top" @click="menuOpen = false"><span
+              class="wordmark__box">F</span><span>FOX<span class="wordmark__thin">SKIN</span></span></a>
+          <button :aria-expanded="menuOpen" aria-controls="nav-menu" aria-label="切换菜单" class="nav__toggle"
+                  type="button" @click="menuOpen = !menuOpen"><i/><i/></button>
+          <nav id="nav-menu" :class="{ 'nav__menu--open': menuOpen }" aria-label="主导航" class="nav__menu">
+            <a href="#library" @click="menuOpen = false">探索皮肤</a>
+            <a href="#how-it-works" @click="menuOpen = false">如何使用</a>
+            <a href="#about" @click="menuOpen = false">关于 FoxSkin</a>
+            <span aria-hidden="true" class="nav__divider"/>
+            <button class="nav__login" type="button" @click="goLogin">登录</button>
+            <button class="nav__join" type="button" @click="goRegister">加入社区 <span aria-hidden="true">↗</span>
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <div class="hero__content shell">
+        <div class="hero__copy">
+          <p class="overline"><span class="status-dot"/> FOXSKIN / CHARACTER ARCHIVE</p>
+          <h1>今天想成为<br><em>{{ selectedSkin.cn }}。</em></h1>
+          <p class="hero__lead">收好每一张皮肤，换上它，再出发。<br>FoxSkin 让你的角色始终有自己的样子。</p>
+          <div class="hero__actions">
+            <button class="btn btn--lime" type="button" @click="goRegister">打开我的衣柜 <span
+                aria-hidden="true">↗</span></button>
+            <a class="btn btn--line" href="#library">查看社区档案 <span aria-hidden="true">↓</span></a>
           </div>
         </div>
-      </nav>
-      <div id="top" class="hero__content">
-        <p class="eyebrow"><span /> MINECRAFT SKIN COMMUNITY</p>
-        <h1 id="hero-title">让每一个角色<br /><em>都成为你的故事。</em></h1>
-        <p class="hero__description">上传、管理并分享你的 Minecraft 皮肤与披风。<br class="desktop-break" />在每一次冒险中，穿上真正属于你的样子。</p>
-        <div class="hero__actions"><button class="button button--primary" type="button" @click="openAuth('register')">开始创作 <span aria-hidden="true">↗</span></button><a class="button button--ghost" href="#library">探索皮肤库 <span aria-hidden="true">↓</span></a></div>
+
+        <div aria-label="皮肤预览" class="character-stage">
+          <div class="character-stage__label"><span>LIVE PREVIEW</span><b>{{ String(activeSkin + 1).padStart(2, '0') }}
+            / 03</b></div>
+          <div
+              :style="{ '--accent': selectedSkin.accent, '--jacket': selectedSkin.jacket, '--shirt': selectedSkin.shirt, '--hair': selectedSkin.hair }"
+              class="character">
+            <div class="character__shadow"/>
+            <div class="character__head"/>
+            <div class="character__neck"/>
+            <div class="character__torso"/>
+            <div class="character__arm character__arm--left"/>
+            <div class="character__arm character__arm--right"/>
+            <div class="character__leg character__leg--left"/>
+            <div class="character__leg character__leg--right"/>
+          </div>
+          <div class="character-stage__caption"><span>{{ selectedSkin.name }}</span><small>by {{
+              selectedSkin.creator
+            }}</small></div>
+          <div class="skin-switcher">
+            <button v-for="(skin, index) in skins" :key="skin.name" :aria-label="`选择 ${skin.name}`"
+                    :class="{ active: activeSkin === index }" class="skin-switcher__item" type="button"
+                    @click="activeSkin = index"><span :style="{ background: skin.accent }"/></button>
+          </div>
+        </div>
       </div>
-      <div class="hero__meta" aria-label="站点统计"><div><strong>12,480</strong><span>玩家正在使用</span></div><div><strong>38,920</strong><span>款皮肤已分享</span></div><div><strong>100%</strong><span>开源与自由</span></div></div>
-      <a class="scroll-cue" href="#features" aria-label="向下查看"><span /> 向下探索</a>
+      <div class="hero__foot shell"><span>JAVA · BEDROCK · YGGDRASIL</span><span>SCROLL TO BROWSE <b>↓</b></span></div>
     </section>
 
-    <section id="features" class="features section-shell"><div class="section-heading"><div><p class="section-kicker">WHY FOXSKIN</p><h2>为热爱游戏的人，<br /><span>保留一点独特。</span></h2></div><p class="section-heading__copy">一个干净、可靠、属于你的皮肤空间。<br />从创作到进入服务器，简单而顺手。</p></div><div class="feature-grid"><article v-for="(feature, index) in features" :key="feature.title" class="feature-item"><span class="feature-item__number">0{{ index + 1 }}</span><div class="feature-item__icon" aria-hidden="true">{{ feature.icon }}</div><h3>{{ feature.title }}</h3><p>{{ feature.description }}</p><span class="feature-item__line" /></article></div></section>
+    <section id="how-it-works" class="intro shell">
+      <div class="intro__title">
+        <div><p class="kicker">THE FOXSKIN METHOD</p>
+          <h2>皮肤不是装饰，<br><span>是你的入场方式。</span></h2></div>
+        <p class="intro__text">
+          把喜欢的样子留在一个地方。上传、预览、切换，然后带着它进入服务器。没有多余步骤，只有更像你的角色。</p></div>
+      <div class="method-grid">
+        <article><b>01</b><span class="method-icon">▦</span>
+          <h3>收进衣柜</h3>
+          <p>上传皮肤与披风，随时查看完整档案。</p></article>
+        <article><b>02</b><span class="method-icon">◒</span>
+          <h3>换上新样子</h3>
+          <p>在进入游戏前预览每个细节，选择今天的状态。</p></article>
+        <article><b>03</b><span class="method-icon">↗</span>
+          <h3>走进服务器</h3>
+          <p>连接 Yggdrasil，让你的外观在旅途中保持一致。</p></article>
+      </div>
+    </section>
 
-    <section id="library" class="library section-shell"><div class="library__topline"><div><p class="section-kicker">LATEST FROM THE LIBRARY</p><h2>看看大家<br /><span>正在穿什么。</span></h2></div><a class="text-link" href="#library">浏览全部皮肤 <span aria-hidden="true">↗</span></a></div><div class="texture-grid"><article v-for="texture in textureCards" :key="texture.name" class="texture-card"><div class="texture-card__preview" :class="texture.tone"><div class="pixel-character" :class="`pixel-character--${texture.model}`" aria-hidden="true"><span class="pixel-character__head" /><span class="pixel-character__body" /><span class="pixel-character__leg pixel-character__leg--left" /><span class="pixel-character__leg pixel-character__leg--right" /></div><span class="texture-card__badge">VIEW</span></div><div class="texture-card__details"><div><h3>{{ texture.name }}</h3><p>{{ texture.author }}</p></div><span class="texture-card__arrow" aria-hidden="true">↗</span></div></article></div></section>
+    <section id="library" class="library">
+      <div class="shell">
+        <div class="library__heading">
+          <div><p class="kicker">COMMUNITY ARCHIVE / 06</p>
+            <h2>最近有人<br><span>这样出发。</span></h2></div>
+          <p class="library__aside">每天都有新的角色加入。<br>挑一张，给它一个名字。</p></div>
+        <div aria-label="皮肤分类" class="filters" role="tablist">
+          <button v-for="filter in filters" :key="filter" :aria-selected="activeFilter === filter"
+                  :class="{ active: activeFilter === filter }"
+                  role="tab" type="button"
+                  @click="activeFilter = filter">{{ filter }}
+          </button>
+        </div>
+        <div class="archive-grid">
+          <article v-for="item in filteredLibrary" :key="item.name" class="archive-card">
+            <div :class="`archive-card__visual--${item.tone}`" class="archive-card__visual"><span
+                class="archive-card__index">{{ String(library.indexOf(item) + 1).padStart(2, '0') }}</span>
+              <div :class="`mini-character--${item.model}`" class="mini-character"><i class="mini-character__head"/><i
+                  class="mini-character__body"/><i class="mini-character__leg mini-character__leg--l"/><i
+                  class="mini-character__leg mini-character__leg--r"/></div>
+              <span class="archive-card__view">查看档案 ↗</span></div>
+            <div class="archive-card__meta">
+              <div><h3>{{ item.name }}</h3>
+                <p>by {{ item.creator }} <span>·</span> {{ item.category }}</p></div>
+              <span class="archive-card__arrow">↗</span></div>
+          </article>
+        </div>
+        <a class="archive-more" href="#top">浏览完整档案 <span>06 / 12480</span><b>↗</b></a>
+      </div>
+    </section>
 
-    <section id="about" class="closing section-shell"><div class="closing__mark">F</div><p class="section-kicker">BUILT FOR YOUR ADVENTURE</p><h2>准备好，<span>换个造型。</span></h2><p>注册一个 FoxSkin 账号，把你的皮肤带进每一场游戏。</p><button class="button button--dark" type="button" @click="openAuth('register')">创建我的账号 <span aria-hidden="true">↗</span></button></section>
-    <footer class="site-footer"><span>© {{ new Date().getFullYear() }} FoxSkin</span><span>OPEN SOURCE MINECRAFT SKIN SERVER</span><a href="https://github.com/bs-community/blessing-skin-server" target="_blank" rel="noreferrer">GitHub ↗</a></footer>
-
-    <Transition name="fade"><div v-if="authMode" class="auth-overlay" role="presentation" @click.self="closeAuth"><section class="auth-modal" role="dialog" aria-modal="true" :aria-labelledby="`${authMode}-title`"><button class="auth-modal__close" type="button" aria-label="关闭" @click="closeAuth">×</button><p class="section-kicker">FOXSKIN ACCOUNT</p><h2 :id="`${authMode}-title`">{{ authMode === 'login' ? '欢迎回来。' : '开始你的故事。' }}</h2><p>{{ authMode === 'login' ? '登录后管理你的角色与衣柜。' : '创建账号，保存并分享你的每一款皮肤。' }}</p><label>邮箱<input type="email" placeholder="you@example.com" /></label><label>密码<input type="password" placeholder="••••••••" /></label><button class="button button--primary auth-modal__submit" type="button" @click="authMode === 'login' ? router.push('/login') : closeAuth()">{{ authMode === 'login' ? '登录 FoxSkin' : '注册 FoxSkin' }} <span aria-hidden="true">↗</span></button><button class="auth-modal__switch" type="button" @click="switchAuth">{{ authMode === 'login' ? '还没有账号？立即注册' : '已经有账号？直接登录' }}</button></section></div></Transition>
+    <section id="about" class="about shell">
+      <div class="about__stamp">F</div>
+      <p class="kicker">YOUR SERVER, YOUR LOOK</p>
+      <h2>给角色一个<br><span>值得记住的样子。</span></h2>
+      <p>开源、轻量、为 Minecraft 玩家准备。<br>从这一张皮肤开始，建立你的专属衣柜。</p>
+      <button class="btn btn--dark" type="button" @click="goRegister">创建 FoxSkin 账号 <span>↗</span></button>
+      <div class="about__status"><span><i/>服务运行正常</span><span>powered by Yggdrasil</span></div>
+    </section>
+    <footer class="footer shell"><span>© {{
+        new Date().getFullYear()
+      }} FOXSKIN</span><span>OPEN SOURCE SKIN SERVER</span><a
+        href="https://github.com/bs-community/blessing-skin-server" rel="noreferrer" target="_blank">GITHUB ↗</a>
+    </footer>
   </main>
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
-:root { --ink: #20251f; --muted: #6c756e; --paper: #f4f3ef; --lime: #d9f35d; --line: #d9dcd4; }
-* { box-sizing: border-box; } html { scroll-behavior: smooth; } body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'DM Sans', sans-serif; } button, a, input { font: inherit; } button { cursor: pointer; } .home-page { min-width: 320px; overflow: hidden; }
-.hero { min-height: 760px; height: min(100vh, 980px); color: #fff; position: relative; isolation: isolate; }.hero__backdrop { position: absolute; inset: 0; z-index: -3; background: url('/blessing-bg.webp') center 54% / cover no-repeat; filter: saturate(.9); }.hero__shade { position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(10,17,14,.84) 0%, rgba(10,17,14,.53) 44%, rgba(10,17,14,.36) 100%), linear-gradient(0deg, rgba(10,17,14,.58), transparent 42%); }
-.site-nav { position: fixed; z-index: 10; top: 0; width: 100%; transition: background .3s, color .3s, box-shadow .3s; }.site-nav--solid { background: rgba(244,243,239,.95); color: var(--ink); box-shadow: 0 1px 0 rgba(32,37,31,.08); backdrop-filter: blur(12px); }.site-nav__inner { max-width: 1240px; height: 82px; padding: 0 32px; margin: auto; display: flex; align-items: center; justify-content: space-between; }.brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -.04em; }.brand__mark { display: grid; width: 30px; height: 30px; place-items: center; background: var(--lime); color: var(--ink); font-size: 18px; font-style: italic; transform: rotate(-7deg); }.site-nav__links { display: flex; align-items: center; gap: 28px; font-size: 13px; font-weight: 500; }.site-nav__links a, .locale-button { color: inherit; text-decoration: none; opacity: .84; transition: opacity .2s; }.site-nav__links a:hover, .locale-button:hover { opacity: 1; }.locale-button { border: 0; padding: 0; background: transparent; display: flex; gap: 7px; align-items: center; }.locale-button__globe { font-size: 12px; }.nav-login, .nav-register { border: 0; background: transparent; color: inherit; font-size: 13px; }.nav-register { padding: 11px 17px; border: 1px solid currentColor; }.menu-toggle { display: none; border: 0; background: transparent; color: inherit; padding: 9px; }.menu-toggle span { display: block; width: 22px; height: 1px; margin: 5px 0; background: currentColor; }
-.hero__content { width: min(1240px, calc(100% - 64px)); margin: auto; padding-top: clamp(190px, 29vh, 275px); }.eyebrow, .section-kicker { color: var(--lime); font: 500 11px/1 'DM Mono', monospace; letter-spacing: .13em; }.eyebrow { display: flex; align-items: center; gap: 10px; margin: 0 0 28px; }.eyebrow span { display: inline-block; width: 28px; height: 1px; background: var(--lime); }.hero h1 { max-width: 720px; margin: 0; font: 600 clamp(48px, 7vw, 88px)/.99 'Space Grotesk', sans-serif; letter-spacing: -.065em; }.hero h1 em { color: var(--lime); font-style: normal; }.hero__description { max-width: 470px; margin: 27px 0 34px; color: rgba(255,255,255,.75); font-size: 16px; line-height: 1.75; }.hero__actions { display: flex; align-items: center; gap: 14px; }.button { display: inline-flex; align-items: center; justify-content: center; gap: 22px; min-height: 48px; padding: 0 20px; border: 1px solid transparent; text-decoration: none; font-size: 13px; font-weight: 600; transition: transform .2s, background .2s, color .2s; }.button:hover { transform: translateY(-2px); }.button--primary { background: var(--lime); color: var(--ink); }.button--primary:hover { background: #e5fb77; }.button--ghost { border-color: rgba(255,255,255,.38); color: #fff; }.button--ghost:hover { background: rgba(255,255,255,.12); }.hero__meta { position: absolute; bottom: 34px; left: max(32px, calc((100% - 1240px) / 2)); display: flex; gap: 52px; }.hero__meta div { display: flex; flex-direction: column; gap: 6px; }.hero__meta strong { font: 500 17px 'Space Grotesk', sans-serif; }.hero__meta span { color: rgba(255,255,255,.56); font: 10px 'DM Mono', monospace; letter-spacing: .05em; }.scroll-cue { position: absolute; right: max(32px, calc((100% - 1240px) / 2)); bottom: 37px; color: rgba(255,255,255,.72); font: 10px 'DM Mono', monospace; letter-spacing: .1em; text-decoration: none; writing-mode: vertical-rl; display: flex; align-items: center; gap: 12px; }.scroll-cue span { width: 1px; height: 44px; background: var(--lime); }
-.section-shell { max-width: 1240px; margin: auto; padding-left: 32px; padding-right: 32px; }.features { padding-top: 125px; padding-bottom: 135px; }.section-heading, .library__topline { display: flex; align-items: flex-end; justify-content: space-between; gap: 50px; }.section-kicker { color: #829130; margin: 0 0 20px; }.section-heading h2, .library h2, .closing h2 { margin: 0; font: 600 clamp(37px,4.4vw,58px)/1.05 'Space Grotesk', sans-serif; letter-spacing: -.06em; }.section-heading h2 span, .library h2 span, .closing h2 span { color: #9aa19a; }.section-heading__copy { color: var(--muted); font-size: 14px; line-height: 1.7; margin: 0 0 4px; }.feature-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 0; margin-top: 90px; border-top: 1px solid var(--line); }.feature-item { position: relative; padding: 29px 42px 4px 0; min-height: 254px; border-right: 1px solid var(--line); }.feature-item:not(:first-child) { padding-left: 42px; }.feature-item:last-child { border-right: 0; }.feature-item__number { position: absolute; right: 26px; top: 31px; color: #a8afa7; font: 11px 'DM Mono', monospace; }.feature-item__icon { color: #9eb834; font-size: 42px; line-height: 1; margin: 0 0 37px; }.feature-item h3 { margin: 0 0 13px; font: 600 18px 'Space Grotesk', sans-serif; }.feature-item p { max-width: 260px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }.feature-item__line { display: block; width: 35px; height: 1px; margin-top: 30px; background: #a9c332; }
-.library { padding-top: 108px; padding-bottom: 137px; background: #e9eae5; max-width: none; }.library > * { max-width: 1176px; margin-left: auto; margin-right: auto; }.library__topline { align-items: flex-start; }.library__topline h2 { font-size: clamp(36px,4vw,54px); }.text-link { margin-top: 61px; color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; border-bottom: 1px solid #a9afa8; padding-bottom: 8px; }.texture-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 15px; margin-top: 65px; }.texture-card { min-width: 0; }.texture-card__preview { height: 330px; display: grid; position: relative; place-items: center; overflow: hidden; }.tone-cyan { background: #bcd5d0; }.tone-red { background: #d9b9af; }.tone-green { background: #c6d0ba; }.tone-violet { background: #c7c1d3; }.texture-card__preview::after { content: ''; position: absolute; inset: auto 0 0; height: 42%; background: linear-gradient(0deg,rgba(20,29,24,.13),transparent); }.texture-card__badge { position: absolute; top: 15px; right: 15px; z-index: 1; padding: 6px 8px; color: #fff; background: rgba(24,31,26,.7); font: 9px 'DM Mono', monospace; letter-spacing: .12em; opacity: 0; transform: translateY(-5px); transition: .25s; }.texture-card:hover .texture-card__badge { opacity: 1; transform: translateY(0); }.pixel-character { position: relative; z-index: 1; width: 108px; height: 240px; filter: drop-shadow(18px 20px 12px rgba(20,26,22,.22)); }.pixel-character span { position: absolute; display: block; image-rendering: pixelated; }.pixel-character__head { top: 0; left: 24px; width: 62px; height: 62px; background: #edc3a4; box-shadow: inset 10px 0 #d89271, inset -11px -5px rgba(100,58,44,.16); }.pixel-character__head::before { content: ''; position: absolute; inset: 0 0 37px; background: #252c27; }.tone-red .pixel-character__head::before { background: #713b35; }.tone-green .pixel-character__head::before { background: #445743; }.tone-violet .pixel-character__head::before { background: #4f405e; }.pixel-character__head::after { content: '▪  ▪'; position: absolute; color: #292b24; letter-spacing: 16px; font-size: 8px; left: 17px; top: 36px; }.pixel-character__body { top: 62px; left: 13px; width: 84px; height: 102px; background: #496d74; box-shadow: inset 12px 0 rgba(255,255,255,.08), inset -15px 0 rgba(17,47,52,.28); }.tone-red .pixel-character__body { background: #843f3a; }.tone-green .pixel-character__body { background: #64734b; }.tone-violet .pixel-character__body { background: #645579; }.pixel-character__leg { top: 164px; width: 36px; height: 76px; background: #2f4c50; box-shadow: inset 10px 0 rgba(255,255,255,.08); }.tone-red .pixel-character__leg { background: #59454c; }.tone-green .pixel-character__leg { background: #4d5943; }.tone-violet .pixel-character__leg { background: #4d435d; }.pixel-character__leg--left { left: 13px; }.pixel-character__leg--right { right: 11px; }.pixel-character--slim .pixel-character__body { left: 21px; width: 68px; }.pixel-character--slim .pixel-character__head { left: 29px; width: 54px; }.pixel-character--slim .pixel-character__leg--left { left: 21px; }.pixel-character--slim .pixel-character__leg--right { right: 19px; }.texture-card__details { display: flex; justify-content: space-between; align-items: flex-start; padding: 15px 1px 0; }.texture-card h3 { margin: 0 0 4px; font: 600 15px 'Space Grotesk', sans-serif; }.texture-card p { margin: 0; color: #7e877e; font: 10px 'DM Mono', monospace; }.texture-card__arrow { color: #899087; font-size: 18px; }
-.closing { position: relative; padding-top: 128px; padding-bottom: 130px; text-align: center; overflow: hidden; }.closing::before { content: ''; position: absolute; width: 400px; height: 400px; border: 1px solid #dfe1da; border-radius: 50%; left: calc(50% - 200px); top: 60px; }.closing__mark { position: relative; z-index: 1; display: grid; width: 50px; height: 50px; margin: 0 auto 29px; place-items: center; color: var(--ink); background: var(--lime); font: italic 30px 'Space Grotesk', sans-serif; transform: rotate(-7deg); }.closing .section-kicker { position: relative; z-index: 1; }.closing h2 { position: relative; z-index: 1; font-size: clamp(42px,5vw,67px); }.closing > p:not(.section-kicker) { position: relative; z-index: 1; margin: 22px 0 30px; color: var(--muted); font-size: 14px; }.closing .button { position: relative; z-index: 1; }.site-footer { display: flex; justify-content: space-between; max-width: 1240px; margin: auto; padding: 22px 32px; border-top: 1px solid var(--line); color: #808880; font: 10px 'DM Mono', monospace; letter-spacing: .04em; }.site-footer a { color: inherit; text-decoration: none; }.site-footer a:hover { color: var(--ink); }.auth-overlay { position: fixed; inset: 0; z-index: 30; display: grid; padding: 20px; place-items: center; background: rgba(20,25,21,.62); backdrop-filter: blur(5px); }.auth-modal { position: relative; width: min(100%,410px); padding: 42px; background: var(--paper); box-shadow: 0 24px 80px rgba(0,0,0,.24); }.auth-modal__close { position: absolute; top: 15px; right: 18px; border: 0; color: var(--muted); background: none; font-size: 28px; line-height: 1; }.auth-modal h2 { margin: 0 0 9px; font: 600 31px 'Space Grotesk', sans-serif; letter-spacing: -.05em; }.auth-modal > p:not(.section-kicker) { color: var(--muted); font-size: 13px; margin: 0 0 26px; }.auth-modal label { display: block; margin: 13px 0; color: var(--muted); font: 10px 'DM Mono', monospace; letter-spacing: .06em; }.auth-modal input { display: block; width: 100%; margin-top: 7px; padding: 12px 11px; border: 1px solid var(--line); outline: 0; background: #fff; color: var(--ink); font: 13px 'DM Sans', sans-serif; }.auth-modal input:focus { border-color: #9eb834; }.auth-modal__submit { width: 100%; margin-top: 14px; }.auth-modal__switch { display: block; margin: 18px auto 0; border: 0; background: transparent; color: var(--muted); font-size: 11px; text-decoration: underline; }.fade-enter-active, .fade-leave-active { transition: opacity .2s; }.fade-enter-from, .fade-leave-to { opacity: 0; }
-@media (max-width: 760px) { .site-nav__inner { height: 70px; padding: 0 20px; }.menu-toggle { display: block; }.site-nav__links { position: absolute; top: 70px; right: 15px; left: 15px; display: none; flex-direction: column; align-items: stretch; gap: 0; padding: 9px 20px 18px; background: rgba(244,243,239,.98); color: var(--ink); box-shadow: 0 15px 35px rgba(20,25,21,.13); }.site-nav__links--open { display: flex; }.site-nav__links a, .locale-button, .nav-login, .nav-register { padding: 13px 0; text-align: left; border-bottom: 1px solid var(--line); }.nav-register { margin-top: 10px; padding: 11px 15px; text-align: center; border: 1px solid var(--ink); }.hero { min-height: 700px; height: 100svh; }.hero__backdrop { background-position: 62% center; }.hero__content { width: calc(100% - 40px); padding-top: 190px; }.hero h1 { font-size: clamp(43px,13vw,68px); }.hero__description { font-size: 14px; }.desktop-break { display: none; }.hero__meta { left: 20px; right: 20px; bottom: 27px; justify-content: space-between; gap: 10px; }.hero__meta strong { font-size: 15px; }.hero__meta span { font-size: 8px; }.scroll-cue { display: none; }.section-shell { padding-left: 20px; padding-right: 20px; }.features, .library, .closing { padding-top: 80px; padding-bottom: 85px; }.section-heading, .library__topline { display: block; }.section-heading__copy { margin-top: 22px; }.feature-grid { grid-template-columns: 1fr; margin-top: 55px; }.feature-item, .feature-item:not(:first-child) { min-height: 0; padding: 27px 35px 35px 0; border-right: 0; border-bottom: 1px solid var(--line); }.feature-item:last-child { border-bottom: 0; }.feature-item__icon { margin-bottom: 22px; }.texture-grid { grid-template-columns: repeat(2,1fr); gap: 24px 10px; margin-top: 44px; }.texture-card__preview { height: 235px; }.pixel-character { transform: scale(.78); }.text-link { display: inline-block; margin-top: 25px; }.closing::before { width: 280px; height: 280px; left: calc(50% - 140px); top: 50px; }.site-footer { flex-wrap: wrap; gap: 12px; padding: 18px 20px; font-size: 8px; }.auth-modal { padding: 35px 25px 28px; } }
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+:root {
+  --ink: #17191b;
+  --pine: #23463b;
+  --moss: #92be4b;
+  --cloud: #edf0ea;
+  --paper: #f7f8f4;
+  --muted: #69736e;
+  --line: #d6ddd4;
+  --rust: #d46647
+}
+
+* {
+  box-sizing: border-box
+}
+
+html {
+  scroll-behavior: smooth
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Noto Sans SC', sans-serif
+}
+
+.home-page {
+  min-width: 320px;
+  overflow: hidden
+}
+
+button, a {
+  font: inherit
+}
+
+.shell {
+  width: min(1180px, calc(100% - 72px));
+  margin: 0 auto
+}
+
+.hero {
+  position: relative;
+  min-height: 760px;
+  height: 100svh;
+  max-height: 980px;
+  isolation: isolate;
+  color: #f8faf4;
+  background: var(--pine)
+}
+
+.hero__image {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  background: url('/blessing-bg.webp') 58% 48%/cover no-repeat;
+  filter: saturate(.82) contrast(1.04)
+}
+
+.hero__veil {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: linear-gradient(90deg, rgba(17, 27, 23, .94) 0%, rgba(22, 47, 38, .73) 42%, rgba(25, 57, 46, .22) 100%), linear-gradient(0deg, rgba(17, 27, 23, .68), transparent 48%)
+}
+
+.nav {
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  width: 100%;
+  transition: background .25s, box-shadow .25s, color .25s
+}
+
+.nav--solid {
+  color: var(--ink);
+  background: rgba(247, 248, 244, .95);
+  box-shadow: 0 1px 0 rgba(23, 25, 27, .1);
+  backdrop-filter: blur(14px)
+}
+
+.nav__inner {
+  height: 78px;
+  width: min(1180px, calc(100% - 72px));
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+  font: 14px 'Archivo Black', sans-serif;
+  letter-spacing: .03em
+}
+
+.wordmark__box {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  color: var(--ink);
+  background: var(--moss);
+  font: 17px 'Archivo Black', sans-serif;
+  transform: rotate(-6deg)
+}
+
+.wordmark__thin {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 400
+}
+
+.nav__menu {
+  display: flex;
+  align-items: center;
+  gap: 27px;
+  font-size: 12px
+}
+
+.nav__menu a, .nav__login {
+  color: inherit;
+  text-decoration: none;
+  opacity: .8
+}
+
+.nav__menu a:hover, .nav__login:hover {
+  opacity: 1
+}
+
+.nav__divider {
+  width: 1px;
+  height: 18px;
+  background: currentColor;
+  opacity: .25
+}
+
+.nav__login, .nav__join {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px
+}
+
+.nav__join {
+  padding: 11px 15px;
+  color: var(--ink);
+  background: var(--moss)
+}
+
+.nav__join span {
+  margin-left: 13px
+}
+
+.nav__toggle {
+  display: none;
+  border: 0;
+  padding: 8px;
+  background: none;
+  color: inherit
+}
+
+.nav__toggle i {
+  display: block;
+  width: 21px;
+  height: 1px;
+  margin: 5px;
+  background: currentColor
+}
+
+.hero__content {
+  display: grid;
+  grid-template-columns:1fr 420px;
+  align-items: center;
+  gap: 90px;
+  height: calc(100% - 95px);
+  padding-top: 62px
+}
+
+.overline, .kicker, .hero__foot, .character-stage__label, .character-stage__caption small, .archive-card__index, .archive-card__view, .footer, .about__status {
+  font: 10px 'IBM Plex Mono', monospace;
+  letter-spacing: .09em
+}
+
+.overline {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 25px;
+  color: #bdd582
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--moss);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(146, 190, 75, .18)
+}
+
+.hero h1 {
+  margin: 0;
+  font: 400 clamp(52px, 6.7vw, 86px)/1.05 'Noto Sans SC', sans-serif;
+  letter-spacing: -.08em
+}
+
+.hero h1 em {
+  color: var(--moss);
+  font-style: normal;
+  font-weight: 700
+}
+
+.hero__lead {
+  margin: 25px 0 32px;
+  color: rgba(244, 248, 241, .75);
+  font-size: 15px;
+  line-height: 1.9
+}
+
+.hero__actions {
+  display: flex;
+  gap: 12px;
+  align-items: center
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  transition: transform .2s, background .2s
+}
+
+.btn:hover {
+  transform: translateY(-2px)
+}
+
+.btn:focus-visible, .nav a:focus-visible, .nav button:focus-visible, .filters button:focus-visible, .archive-more:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 4px
+}
+
+.btn--lime {
+  color: var(--ink);
+  background: var(--moss)
+}
+
+.btn--lime:hover {
+  background: #a8ce62
+}
+
+.btn--line {
+  border-color: rgba(243, 248, 241, .42);
+  color: #f3f8f1
+}
+
+.btn--line:hover {
+  background: rgba(243, 248, 241, .12)
+}
+
+.character-stage {
+  position: relative;
+  align-self: center;
+  height: 495px;
+  border-left: 1px solid rgba(225, 239, 222, .24);
+  border-bottom: 1px solid rgba(225, 239, 222, .24)
+}
+
+.character-stage__label {
+  position: absolute;
+  top: 0;
+  left: 17px;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  color: #d5e4d0
+}
+
+.character-stage__label b {
+  font-weight: 400;
+  color: var(--moss)
+}
+
+.character-stage__caption {
+  position: absolute;
+  right: 0;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: right
+}
+
+.character-stage__caption span {
+  font-size: 18px;
+  font-weight: 600
+}
+
+.character-stage__caption small {
+  color: #bdd2b9;
+  letter-spacing: .02em
+}
+
+.character {
+  position: absolute;
+  left: 50%;
+  top: 47%;
+  width: 186px;
+  height: 390px;
+  transform: translate(-43%, -50%);
+  filter: drop-shadow(25px 28px 15px rgba(8, 15, 11, .35));
+  image-rendering: pixelated
+}
+
+.character__shadow {
+  position: absolute;
+  bottom: 1px;
+  left: 13px;
+  width: 165px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(11, 20, 14, .6);
+  filter: blur(6px)
+}
+
+.character__head, .character__neck, .character__torso, .character__arm, .character__leg {
+  position: absolute;
+  background: var(--shirt);
+  box-shadow: inset -13px 0 rgba(12, 35, 27, .18)
+}
+
+.character__head {
+  top: 0;
+  left: 45px;
+  width: 98px;
+  height: 98px;
+  background: #dcad8b;
+  box-shadow: inset 14px 0 #bf8069, inset -15px -8px rgba(81, 50, 38, .18)
+}
+
+.character__head:before {
+  content: '';
+  position: absolute;
+  inset: 0 0 57px;
+  background: var(--hair)
+}
+
+.character__head:after {
+  content: '▪  ▪';
+  position: absolute;
+  left: 26px;
+  top: 58px;
+  color: #30332b;
+  font-size: 10px;
+  letter-spacing: 22px
+}
+
+.character__neck {
+  top: 98px;
+  left: 76px;
+  width: 37px;
+  height: 20px;
+  background: #c68c70
+}
+
+.character__torso {
+  top: 118px;
+  left: 24px;
+  width: 140px;
+  height: 148px;
+  background: var(--jacket);
+  box-shadow: inset 21px 0 rgba(230, 239, 211, .1), inset -24px 0 rgba(9, 28, 22, .25)
+}
+
+.character__torso:after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 28px;
+  height: 148px;
+  transform: translateX(-50%);
+  background: var(--shirt);
+  opacity: .9
+}
+
+.character__arm {
+  top: 121px;
+  width: 38px;
+  height: 141px;
+  background: var(--jacket)
+}
+
+.character__arm--left {
+  left: 0
+}
+
+.character__arm--right {
+  right: 0
+}
+
+.character__leg {
+  top: 266px;
+  width: 59px;
+  height: 122px;
+  background: #33483e;
+  box-shadow: inset 16px 0 rgba(220, 239, 214, .09)
+}
+
+.character__leg--left {
+  left: 24px
+}
+
+.character__leg--right {
+  right: 24px
+}
+
+.hero__foot {
+  position: absolute;
+  right: 0;
+  bottom: 24px;
+  left: 0;
+  display: flex;
+  justify-content: space-between;
+  color: rgba(229, 240, 225, .57)
+}
+
+.hero__foot b {
+  margin-left: 8px;
+  color: var(--moss);
+  font-size: 15px
+}
+
+.skin-switcher {
+  position: absolute;
+  bottom: 13px;
+  left: 17px;
+  display: flex;
+  gap: 7px
+}
+
+.skin-switcher__item {
+  width: 20px;
+  height: 20px;
+  padding: 3px;
+  border: 1px solid rgba(220, 237, 214, .38);
+  background: transparent
+}
+
+.skin-switcher__item.active {
+  border-color: var(--moss)
+}
+
+.skin-switcher__item span {
+  display: block;
+  width: 100%;
+  height: 100%
+}
+
+.intro {
+  padding-top: 124px;
+  padding-bottom: 125px
+}
+
+.intro__title, .library__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px
+}
+
+.kicker {
+  margin: 0 0 19px;
+  color: #5f7d3d
+}
+
+.intro h2, .library h2, .about h2 {
+  margin: 0;
+  font-size: clamp(38px, 4.6vw, 61px);
+  line-height: 1.12;
+  letter-spacing: -.075em;
+  font-weight: 600
+}
+
+.intro h2 span, .library h2 span, .about h2 span {
+  color: #9ba69f
+}
+
+.intro__text {
+  max-width: 330px;
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.85
+}
+
+.method-grid {
+  display: grid;
+  grid-template-columns:repeat(3, 1fr);
+  margin-top: 86px;
+  border-top: 1px solid var(--line)
+}
+
+.method-grid article {
+  position: relative;
+  min-height: 223px;
+  padding: 27px 40px 20px 0;
+  border-right: 1px solid var(--line)
+}
+
+.method-grid article + article {
+  padding-left: 40px
+}
+
+.method-grid article:last-child {
+  border-right: 0
+}
+
+.method-grid b {
+  position: absolute;
+  right: 25px;
+  top: 28px;
+  color: #aab6ab;
+  font: 10px 'IBM Plex Mono', monospace
+}
+
+.method-icon {
+  display: block;
+  margin-bottom: 34px;
+  color: var(--moss);
+  font-size: 36px;
+  line-height: 1
+}
+
+.method-grid h3 {
+  margin: 0 0 10px;
+  font-size: 17px
+}
+
+.method-grid p {
+  max-width: 230px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8
+}
+
+.library {
+  padding: 108px 0 118px;
+  background: var(--cloud)
+}
+
+.library__aside {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8
+}
+
+.filters {
+  display: flex;
+  gap: 23px;
+  margin-top: 56px;
+  border-bottom: 1px solid #ccd4ca
+}
+
+.filters button {
+  position: relative;
+  padding: 0 0 14px;
+  border: 0;
+  background: none;
+  color: #89938d;
+  font-size: 12px;
+  cursor: pointer
+}
+
+.filters button.active {
+  color: var(--ink);
+  font-weight: 600
+}
+
+.filters button.active:after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--moss)
+}
+
+.archive-grid {
+  display: grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap: 39px 15px;
+  margin-top: 28px
+}
+
+.archive-card__visual {
+  position: relative;
+  height: 278px;
+  display: grid;
+  place-items: center;
+  overflow: hidden
+}
+
+.archive-card__visual:after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 50%;
+  background: linear-gradient(0deg, rgba(20, 30, 22, .2), transparent)
+}
+
+.archive-card__visual--cedar {
+  background: #c9d4bd
+}
+
+.archive-card__visual--solar {
+  background: #e4c1a3
+}
+
+.archive-card__visual--current {
+  background: #a7c8c3
+}
+
+.archive-card__visual--field {
+  background: #d8d0af
+}
+
+.archive-card__visual--redstone {
+  background: #d4a097
+}
+
+.archive-card__visual--cloud {
+  background: #c4cad0
+}
+
+.archive-card__index {
+  position: absolute;
+  z-index: 1;
+  top: 13px;
+  left: 14px;
+  color: rgba(22, 35, 27, .56)
+}
+
+.archive-card__view {
+  position: absolute;
+  z-index: 2;
+  right: 14px;
+  bottom: 12px;
+  color: #fff;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: .2s
+}
+
+.archive-card:hover .archive-card__view {
+  opacity: 1;
+  transform: none
+}
+
+.mini-character {
+  position: relative;
+  width: 76px;
+  height: 188px;
+  filter: drop-shadow(13px 17px 8px rgba(26, 35, 25, .2))
+}
+
+.mini-character i {
+  position: absolute;
+  display: block
+}
+
+.mini-character__head {
+  top: 0;
+  left: 17px;
+  width: 43px;
+  height: 43px;
+  background: #dcae8b;
+  box-shadow: inset 8px 0 #bf8069
+}
+
+.mini-character__head:before {
+  content: '';
+  position: absolute;
+  inset: 0 0 25px;
+  background: #29312a
+}
+
+.mini-character__body {
+  top: 43px;
+  left: 9px;
+  width: 58px;
+  height: 77px;
+  background: #537456;
+  box-shadow: inset 9px 0 rgba(235, 245, 220, .12)
+}
+
+.archive-card__visual--solar .mini-character__body {
+  background: #a0513f
+}
+
+.archive-card__visual--current .mini-character__body {
+  background: #3f6b70
+}
+
+.archive-card__visual--field .mini-character__body {
+  background: #7d7651
+}
+
+.archive-card__visual--redstone .mini-character__body {
+  background: #814238
+}
+
+.archive-card__visual--cloud .mini-character__body {
+  background: #5e6976
+}
+
+.mini-character__leg {
+  top: 120px;
+  width: 24px;
+  height: 68px;
+  background: #3e5446
+}
+
+.mini-character__leg--l {
+  left: 9px
+}
+
+.mini-character__leg--r {
+  right: 9px
+}
+
+.mini-character--slim .mini-character__head {
+  left: 21px;
+  width: 36px
+}
+
+.mini-character--slim .mini-character__body {
+  left: 15px;
+  width: 47px
+}
+
+.mini-character--slim .mini-character__leg--l {
+  left: 15px
+}
+
+.mini-character--slim .mini-character__leg--r {
+  right: 14px
+}
+
+.archive-card__meta {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 13px
+}
+
+.archive-card h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600
+}
+
+.archive-card p {
+  margin: 0;
+  color: #7b8780;
+  font: 10px 'IBM Plex Mono', monospace
+}
+
+.archive-card p span {
+  padding: 0 5px;
+  color: #a4ada6
+}
+
+.archive-card__arrow {
+  color: #7c8980;
+  font-size: 18px
+}
+
+.archive-more {
+  display: flex;
+  align-items: center;
+  gap: 19px;
+  width: max-content;
+  margin: 73px auto 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #8e9b90;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none
+}
+
+.archive-more span {
+  color: #89948d;
+  font: 10px 'IBM Plex Mono', monospace;
+  font-weight: 400
+}
+
+.archive-more b {
+  font-size: 17px
+}
+
+.about {
+  padding-top: 127px;
+  padding-bottom: 111px;
+  text-align: center
+}
+
+.about__stamp {
+  display: grid;
+  position: relative;
+  z-index: 1;
+  width: 47px;
+  height: 47px;
+  place-items: center;
+  margin: 0 auto 26px;
+  color: var(--ink);
+  background: var(--moss);
+  font: 24px 'Archivo Black', sans-serif;
+  transform: rotate(-6deg)
+}
+
+.about {
+  position: relative
+}
+
+.about:before {
+  content: '';
+  position: absolute;
+  top: 59px;
+  left: 50%;
+  width: 370px;
+  height: 370px;
+  border: 1px solid #e0e5de;
+  border-radius: 50%;
+  transform: translateX(-50%)
+}
+
+.about .kicker, .about h2, .about > p:not(.kicker), .about .btn, .about__status {
+  position: relative;
+  z-index: 1
+}
+
+.about h2 {
+  font-size: clamp(42px, 5.1vw, 70px)
+}
+
+.about > p:not(.kicker) {
+  margin: 23px 0 30px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8
+}
+
+.btn--dark {
+  color: #f0f4ed;
+  background: var(--ink)
+}
+
+.btn--dark:hover {
+  background: #30423b
+}
+
+.about__status {
+  display: flex;
+  justify-content: center;
+  gap: 26px;
+  margin-top: 53px;
+  color: #849087;
+  font-size: 10px
+}
+
+.about__status i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #72a843
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 20px 0;
+  color: #8a948c;
+  border-top: 1px solid var(--line);
+  font-size: 9px
+}
+
+.footer a {
+  color: inherit;
+  text-decoration: none
+}
+
+.footer a:hover {
+  color: var(--ink)
+}
+
+@media (max-width: 760px) {
+  .shell, .nav__inner {
+    width: calc(100% - 40px)
+  }
+
+  .hero {
+    min-height: 740px
+  }
+
+  .hero__image {
+    background-position: 62% center
+  }
+
+  .nav__inner {
+    height: 68px
+  }
+
+  .nav__toggle {
+    display: block
+  }
+
+  .nav__menu {
+    position: absolute;
+    top: 68px;
+    right: 12px;
+    left: 12px;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 8px 18px 17px;
+    color: var(--ink);
+    background: rgba(247, 248, 244, .98);
+    box-shadow: 0 16px 35px rgba(13, 24, 18, .16)
+  }
+
+  .nav__menu--open {
+    display: flex
+  }
+
+  .nav__menu a, .nav__login {
+    padding: 13px 0;
+    border-bottom: 1px solid var(--line)
+  }
+
+  .nav__divider {
+    display: none
+  }
+
+  .nav__join {
+    margin-top: 10px;
+    text-align: center
+  }
+
+  .hero__content {
+    display: block;
+    height: auto;
+    padding-top: 157px
+  }
+
+  .hero h1 {
+    font-size: clamp(45px, 14vw, 70px)
+  }
+
+  .hero__lead {
+    font-size: 13px
+  }
+
+  .hero__actions {
+    flex-wrap: wrap
+  }
+
+  .character-stage {
+    height: 345px;
+    margin-top: 37px;
+    border-left: 0
+  }
+
+  .character {
+    top: 44%;
+    transform: translate(-50%, -50%) scale(.74)
+  }
+
+  .character-stage__label {
+    left: 0
+  }
+
+  .character-stage__caption {
+    right: 0;
+    bottom: 0
+  }
+
+  .skin-switcher {
+    left: 0;
+    bottom: 0
+  }
+
+  .hero__foot {
+    right: 20px;
+    bottom: 17px;
+    left: 20px;
+    font-size: 8px
+  }
+
+  .hero__foot span:last-child {
+    display: none
+  }
+
+  .intro, .library, .about {
+    padding-top: 80px;
+    padding-bottom: 85px
+  }
+
+  .intro__title, .library__heading {
+    display: block
+  }
+
+  .intro__text {
+    margin-top: 22px
+  }
+
+  .method-grid {
+    grid-template-columns:1fr;
+    margin-top: 55px
+  }
+
+  .method-grid article, .method-grid article + article {
+    min-height: 0;
+    padding: 25px 35px 30px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line)
+  }
+
+  .method-grid article:last-child {
+    border-bottom: 0
+  }
+
+  .method-icon {
+    margin-bottom: 22px
+  }
+
+  .filters {
+    gap: 16px;
+    margin-top: 42px;
+    overflow: auto
+  }
+
+  .filters button {
+    white-space: nowrap
+  }
+
+  .archive-grid {
+    grid-template-columns:repeat(2, 1fr);
+    gap: 28px 10px
+  }
+
+  .archive-card__visual {
+    height: 210px
+  }
+
+  .mini-character {
+    transform: scale(.8)
+  }
+
+  .archive-more {
+    margin-top: 55px
+  }
+
+  .about:before {
+    width: 285px;
+    height: 285px
+  }
+
+  .footer {
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 8px
+  }
+
+  .footer span:nth-child(2) {
+    order: 3;
+    width: 100%
+  }
+}
+
+.home-page * {
+  letter-spacing: 0 !important
+}
+
+.hero h1 {
+  font-size: 78px
+}
+
+.intro h2, .library h2 {
+  font-size: 58px
+}
+
+.about h2 {
+  font-size: 68px
+}
+
+@media (min-width: 761px) and (max-width: 1100px) {
+  .hero h1 {
+    font-size: 58px
+  }
+
+  .hero__content {
+    grid-template-columns:1fr 360px;
+    gap: 45px
+  }
+
+  .intro h2, .library h2 {
+    font-size: 49px
+  }
+}
+
+@media (max-width: 760px) {
+  .hero {
+    height: min(760px, 100svh);
+    min-height: 700px
+  }
+
+  .hero__content {
+    padding-top: 115px
+  }
+
+  .hero h1 {
+    font-size: 48px
+  }
+
+  .hero__lead {
+    margin: 16px 0 20px;
+    font-size: 12px;
+    line-height: 1.7
+  }
+
+  .character-stage {
+    height: 220px;
+    margin-top: 20px
+  }
+
+  .character {
+    top: 43%;
+    transform: translate(-50%, -50%) scale(.48)
+  }
+
+  .character-stage__caption {
+    display: none
+  }
+
+  .intro {
+    padding-top: 52px
+  }
+
+  .intro h2, .library h2 {
+    font-size: 42px
+  }
+
+  .about h2 {
+    font-size: 46px
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *:before, *:after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important
+  }
+}
 </style>
