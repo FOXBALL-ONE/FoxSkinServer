@@ -8,6 +8,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import jakarta.persistence.Transient
 import java.time.LocalDateTime
+import java.util.UUID
 
 /** Blessing Skin 兼容的用户实体。 */
 @Entity
@@ -30,7 +31,7 @@ class User(
     /** 用户名，用于登录，系统内唯一。 */
     @Column(nullable = false, unique = true, length = 50)
     var username: String = "",
-
+    
     /** 用户昵称，用于展示。 */
     @Column(nullable = false, length = 50)
     var nickname: String = "",
@@ -39,9 +40,9 @@ class User(
     @Column(nullable = true, length = 255)
     var locale: String? = null,
     
-    /** 用户头像资源标识。 */
-    @Column(nullable = false)
-    var avatar: Int = 0,
+    /** 头像所引用的文件主键；为空时前端回退到昵称首字母头像。 */
+    @Column(name = "avatar_file_id", nullable = true)
+    var avatarFileId: UUID? = null,
     
     /** 用户积分，用于请求频率控制等业务规则。 */
     @Column(nullable = false)
@@ -83,20 +84,20 @@ class User(
     @get:Transient
     val uid: Long?
         get() = id
-
+    
     /** 判断用户是否拥有管理员权限。 */
     fun isAdmin(): Boolean = permission >= ADMIN
-
+    
     companion object {
         /** 封禁用户权限等级。 */
         const val BANNED = -1
-
+        
         /** 普通用户权限等级。 */
         const val NORMAL = 0
-
+        
         /** 管理员权限等级。 */
         const val ADMIN = 1
-
+        
         /** 超级管理员权限等级。 */
         const val SUPER_ADMIN = 2
     }

@@ -16,27 +16,27 @@ class Report(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
-
+    
     /** 被举报纹理主键。 */
     @Column(name = "tid", nullable = false)
     var textureId: Long = 0,
-
+    
     /** 被举报纹理上传者用户主键。 */
     @Column(name = "uploader", nullable = false)
     var uploaderId: Long = 0,
-
+    
     /** 举报人用户主键。 */
     @Column(name = "reporter", nullable = false)
     var reporterId: Long = 0,
-
+    
     /** 举报原因。 */
     @Column(nullable = false, columnDefinition = "TEXT")
     var reason: String = "",
-
+    
     /** 举报处理状态。 */
     @Column(nullable = false)
     var status: Int = PENDING,
-
+    
     /** 举报提交时间。 */
     @Column(name = "report_at", nullable = false)
     var reportAt: LocalDateTime = LocalDateTime.now(),
@@ -44,10 +44,10 @@ class Report(
     companion object {
         /** 待处理状态。 */
         const val PENDING = 0
-
+        
         /** 已解决状态。 */
         const val RESOLVED = 1
-
+        
         /** 已驳回状态。 */
         const val REJECTED = 2
     }

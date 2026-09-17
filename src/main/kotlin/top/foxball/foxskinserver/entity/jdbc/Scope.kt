@@ -15,11 +15,11 @@ class Scope(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
-
+    
     /** 作用域名称。 */
     @Column(nullable = false, unique = true)
     var name: String = "",
-
+    
     /** 作用域描述。 */
     @Column(nullable = false, columnDefinition = "TEXT")
     var description: String = "",

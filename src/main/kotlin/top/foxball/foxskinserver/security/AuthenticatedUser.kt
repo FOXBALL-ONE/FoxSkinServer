@@ -19,14 +19,14 @@ data class AuthenticatedUser(
         if (permission >= User.ADMIN) add(SimpleGrantedAuthority("ROLE_ADMIN"))
         if (permission >= User.SUPER_ADMIN) add(SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))
     }
-
+    
     override fun getPassword(): String = ""
     override fun getUsername(): String = email
     override fun isAccountNonExpired(): Boolean = true
     override fun isAccountNonLocked(): Boolean = permission != User.BANNED
     override fun isCredentialsNonExpired(): Boolean = true
     override fun isEnabled(): Boolean = permission != User.BANNED
-
+    
     companion object {
         fun from(user: User): AuthenticatedUser = AuthenticatedUser(
             userId = requireNotNull(user.id),

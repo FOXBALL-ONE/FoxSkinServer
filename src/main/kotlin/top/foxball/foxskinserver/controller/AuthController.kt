@@ -33,13 +33,13 @@ class AuthController(
             @param:JsonProperty("refresh_token") val refreshToken: String,
             @param:JsonProperty("expires_in") val expiresIn: Long,
         )
-
+        
         val identifier = username?.takeIf { it.isNotBlank() } ?: email ?: ""
         val tokens = authService.login(identifier, password)
         response.addHeader("Set-Cookie", refreshCookie(tokens.refreshToken).toString())
         return responseBuilder.ok().data(TokenData(tokens.accessToken, tokens.refreshToken, tokens.expiresIn)).build()
     }
-
+    
     @PostMapping("/api/auth/refresh")
     fun refresh(
         request: HttpServletRequest,
@@ -51,13 +51,13 @@ class AuthController(
             @param:JsonProperty("refresh_token") val refreshToken: String,
             @param:JsonProperty("expires_in") val expiresIn: Long,
         )
-
+        
         val cookieToken = request.cookies?.firstOrNull { it.name == jwtProperties.refresh.cookie.name }?.value
         val tokens = authService.refresh(cookieToken ?: refreshToken ?: "")
         response.addHeader("Set-Cookie", refreshCookie(tokens.refreshToken).toString())
         return responseBuilder.ok().data(TokenData(tokens.accessToken, tokens.refreshToken, tokens.expiresIn)).build()
     }
-
+    
     @PostMapping("/api/auth/logout")
     fun logout(
         request: HttpServletRequest,
@@ -69,7 +69,7 @@ class AuthController(
         response.addHeader("Set-Cookie", refreshCookie("", 0).toString())
         return responseBuilder.ok().build()
     }
-
+    
     @org.springframework.web.bind.annotation.GetMapping("/api/auth/me")
     fun me(@AuthenticationPrincipal principal: AuthenticatedUser): ResponseEntity<Response> {
         data class UserData(
@@ -91,7 +91,7 @@ class AuthController(
             )
         ).build()
     }
-
+    
     private fun refreshCookie(token: String, maxAgeOverride: Long? = null): ResponseCookie {
         val config = jwtProperties.refresh.cookie
         val builder = ResponseCookie.from(config.name, token)

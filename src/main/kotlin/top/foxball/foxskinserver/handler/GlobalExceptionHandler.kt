@@ -2,6 +2,7 @@ package top.foxball.foxskinserver.handler
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
 import org.springframework.dao.DataAccessException
@@ -37,7 +38,7 @@ class GlobalExceptionHandler(
 ) {
     private val log = LoggerFactory.getLogger(this.javaClass)
     private val builder = ResponseBuilder()
-
+    
     /** Yggdrasil 客户端要求错误响应使用 error/errorMessage，而不是站内 Response 包装。 */
     @ExceptionHandler(HttpMediaTypeNotSupportedException::class)
     fun onHttpMediaTypeNotSupported(
@@ -53,7 +54,7 @@ class GlobalExceptionHandler(
             .message(ex.message ?: "不支持的媒体类型")
             .build()
     }
-
+    
     @ExceptionHandler(HomeRecommendationVersionConflictException::class)
     fun onHomeRecommendationVersionConflictException(
         ex: HomeRecommendationVersionConflictException,
@@ -62,14 +63,14 @@ class GlobalExceptionHandler(
             @param:JsonProperty("actual_version")
             val actualVersion: Long,
         )
-
+        
         val rs = Response(actualVersion = ex.actualVersion)
         return builder.status(ex.status)
             .message(ex.message)
             .data(rs)
             .build()
     }
-
+    
     @ExceptionHandler(AnnouncementVersionConflictException::class)
     fun onAnnouncementVersionConflictException(
         ex: AnnouncementVersionConflictException,
@@ -78,14 +79,14 @@ class GlobalExceptionHandler(
             @param:JsonProperty("actual_version")
             val actualVersion: Long,
         )
-
+        
         val rs = Response(actualVersion = ex.actualVersion)
         return builder.status(ex.status)
             .message(ex.message)
             .data(rs)
             .build()
     }
-
+    
     @ExceptionHandler(AccessTokenExpiredException::class)
     fun onAccessTokenExpiredException(ex: AccessTokenExpiredException): ResponseEntity<Response> {
         return builder.status(ex.status)
@@ -93,7 +94,7 @@ class GlobalExceptionHandler(
             .data(mapOf("error" to AccessTokenExpiredException.ERROR))
             .build()
     }
-
+    
     @ExceptionHandler(RefreshTokenExpiredException::class)
     fun onRefreshTokenExpiredException(ex: RefreshTokenExpiredException): ResponseEntity<Response> {
         return builder.status(ex.status)
@@ -101,14 +102,14 @@ class GlobalExceptionHandler(
             .data(mapOf("error" to RefreshTokenExpiredException.ERROR))
             .build()
     }
-
+    
     @ExceptionHandler(BusinessException::class)
     fun onBusinessException(ex: BusinessException): ResponseEntity<Response> {
         return builder.status(ex.status)
             .message(ex.message)
             .build()
     }
-
+    
     /** Yggdrasil 客户端不识别站内 Response 包装，必须返回协议规定的错误字段。 */
     @ExceptionHandler(YggdrasilException::class)
     fun onYggdrasilException(ex: YggdrasilException): ResponseEntity<Map<String, String>> {
@@ -118,7 +119,7 @@ class GlobalExceptionHandler(
         if (ex.retryAfterSeconds > 0) response.header("Retry-After", ex.retryAfterSeconds.toString())
         return response.body(body)
     }
-
+    
     @ExceptionHandler(OrderProcessingException::class)
     fun onOrderProcessingException(ex: OrderProcessingException): ResponseEntity<Response> {
         return builder.status(ex.status)
@@ -126,7 +127,7 @@ class GlobalExceptionHandler(
             .message(ex.message)
             .build()
     }
-
+    
     @ExceptionHandler(OrderWindowLimitException::class)
     fun onOrderWindowLimitException(ex: OrderWindowLimitException): ResponseEntity<Response> {
         return builder.status(ex.status)
@@ -134,6 +135,7 @@ class GlobalExceptionHandler(
             .message(ex.message)
             .build()
     }
+    
     @ExceptionHandler(SupportTicketRateLimitException::class)
     fun onSupportTicketRateLimitException(ex: SupportTicketRateLimitException): ResponseEntity<Response> {
         return builder.status(ex.status)
@@ -141,15 +143,15 @@ class GlobalExceptionHandler(
             .message(ex.message)
             .build()
     }
-
-
+    
+    
     @ExceptionHandler(AccessDeniedException::class)
     fun onAccessDeniedException(ex: AccessDeniedException): ResponseEntity<Response> {
         return builder.forbidden()
             .message(ex.message ?: "禁止访问")
             .build()
     }
-
+    
     /** 业务代码或方法级安全校验抛出的认证异常统一转换为 401。 */
     @ExceptionHandler(AuthenticationException::class)
     fun onAuthenticationException(ex: AuthenticationException): ResponseEntity<Response> {
@@ -157,7 +159,7 @@ class GlobalExceptionHandler(
             .message(ex.message ?: "未授权")
             .build()
     }
-
+    
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
     fun onHttpRequestMethodNotSupportedException(
         req: HttpServletRequest,
@@ -172,7 +174,7 @@ class GlobalExceptionHandler(
             .message("Method \"${ex.method}\" is not supported on this endpoint.")
             .build()
     }
-
+    
     @ExceptionHandler(NoResourceFoundException::class, NoHandlerFoundException::class)
     fun onNoResourceOrHandlerFoundException(req: HttpServletRequest): ResponseEntity<*> {
         if (isYggdrasilRequest(req)) return yggdrasilError(
@@ -182,21 +184,21 @@ class GlobalExceptionHandler(
         )
         return builder.notFound().build()
     }
-
+    
     @ExceptionHandler(MissingServletRequestParameterException::class)
     fun onMissingServletRequestParameterException(ex: MissingServletRequestParameterException): ResponseEntity<Response> {
         return builder.badRequest()
             .message("Required parameter \"${ex.parameterName}\" is not provided!")
             .build()
     }
-
+    
     @ExceptionHandler(MissingRequestHeaderException::class)
     fun onMissingRequestHeaderException(ex: MissingRequestHeaderException): ResponseEntity<Response> {
         return builder.badRequest()
             .message("Required request header \"${ex.headerName}\" is not provided!")
             .build()
     }
-
+    
     @ExceptionHandler(MethodArgumentTypeMismatchException::class)
     fun onMethodArgumentTypeMismatchException(
         req: HttpServletRequest,
@@ -211,7 +213,7 @@ class GlobalExceptionHandler(
             .message("Parameter \"${ex.parameter.parameterName}\" type mismatch. Expected ${ex.requiredType}.")
             .build()
     }
-
+    
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun onMethodArgumentNotValid(ex: MethodArgumentNotValidException): ResponseEntity<Response> {
         val detail = ex.fieldErrors.joinToString("; ") { "${it.field}: ${it.defaultMessage}" }
@@ -219,7 +221,7 @@ class GlobalExceptionHandler(
             .message("参数校验失败：$detail")
             .build()
     }
-
+    
     @ExceptionHandler(HandlerMethodValidationException::class)
     fun onHandlerMethodValidationException(ex: HandlerMethodValidationException): ResponseEntity<Response> {
         val detail = ex.parameterValidationResults.joinToString("; ") { result ->
@@ -233,8 +235,24 @@ class GlobalExceptionHandler(
             .message(if (detail.isBlank()) "参数校验失败" else "参数校验失败: $detail")
             .build()
     }
-
-
+    
+    /**
+     * 类上标注 @Validated 的控制器由 AOP 方法校验拦截，校验失败抛的是 ConstraintViolationException，
+     * 与 Spring MVC 内建校验的 HandlerMethodValidationException 不是同一种异常，需要单独映射为 400。
+     */
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun onConstraintViolationException(ex: ConstraintViolationException): ResponseEntity<Response> {
+        val detail = ex.constraintViolations.joinToString("; ") { violation ->
+            val parameterName = violation.propertyPath.toString().substringAfterLast('.')
+            val message = violation.message ?: "invalid value"
+            "$parameterName: $message"
+        }
+        return builder.badRequest()
+            .message(if (detail.isBlank()) "参数校验失败" else "参数校验失败: $detail")
+            .build()
+    }
+    
+    
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun onHttpMessageNotReadable(req: HttpServletRequest, ex: HttpMessageNotReadableException): ResponseEntity<*> {
         if (isYggdrasilRequest(req)) return yggdrasilError(
@@ -246,14 +264,14 @@ class GlobalExceptionHandler(
             .message("请求体格式错误或必填字段缺失")
             .build()
     }
-
+    
     @ExceptionHandler(MaxUploadSizeExceededException::class)
     fun onMaxUploadSizeExceededException(): ResponseEntity<Response> {
         return builder.status(HttpStatus.PAYLOAD_TOO_LARGE)
             .message("Uploaded file exceeds the configured size limit.")
             .build()
     }
-
+    
     @ExceptionHandler(IllegalArgumentException::class)
     fun onIllegalArgumentException(ex: IllegalArgumentException?): ResponseEntity<Response> {
         log.warn("Illegal argument access happened: ", ex)
@@ -261,7 +279,7 @@ class GlobalExceptionHandler(
             .message(ex?.message ?: "Invalid argument.")
             .build()
     }
-
+    
     @ExceptionHandler(TransientDataAccessException::class)
     fun onTransientDataAccessException(ex: TransientDataAccessException): ResponseEntity<Response> {
         log.warn("Transient data access error: {}", ex.message)
@@ -270,8 +288,8 @@ class GlobalExceptionHandler(
             .message("系统繁忙，请稍后重试")
             .build()
     }
-
-
+    
+    
     @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
     fun onOptimisticLockingFailureException(ex: ObjectOptimisticLockingFailureException): ResponseEntity<Response> {
         log.warn("Optimistic locking conflict: {}", ex.message)
@@ -279,7 +297,7 @@ class GlobalExceptionHandler(
             .message("数据已被其他操作更新，请刷新后重试")
             .build()
     }
-
+    
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun onDataIntegrityViolationException(ex: DataIntegrityViolationException): ResponseEntity<Response> {
         val detail = generateSequence<Throwable>(ex) { it.cause }
@@ -300,26 +318,26 @@ class GlobalExceptionHandler(
         log.error("Unhandled data integrity violation", ex)
         return builder.exception().build()
     }
-
+    
     @ExceptionHandler(DataAccessException::class)
     fun onDataAccessException(ex: DataAccessException): ResponseEntity<Response> {
         log.error("Non-transient data access error", ex)
         return builder.exception().build()
     }
-
+    
     @ExceptionHandler(Exception::class)
     fun onException(req: HttpServletRequest, ex: Exception?): ResponseEntity<Response> {
         log.error("Got an exception while process request: {}", req.requestURI, ex)
         return builder.exception().build()
     }
-
+    
     /** Yggdrasil 路由不能混用站内统一响应，且需要兼容反向代理的 context-path。 */
     private fun isYggdrasilRequest(req: HttpServletRequest): Boolean {
         val apiPath = yggdrasilProperties.apiPath.trimEnd('/').ifEmpty { "/" }
         val requestPath = req.requestURI.removePrefix(req.contextPath).trimEnd('/').ifEmpty { "/" }
         return requestPath == apiPath || requestPath.startsWith("$apiPath/")
     }
-
+    
     private fun yggdrasilError(
         status: HttpStatus,
         error: String,

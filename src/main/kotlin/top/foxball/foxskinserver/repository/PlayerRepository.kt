@@ -10,4 +10,7 @@ interface PlayerRepository : JpaRepository<Player, Long> {
     fun findByName(name: String): Player?
     fun findAllByUserId(userId: Long): List<Player>
     fun findPlayerByUserIdAndName(userId: Long, name: String): Player?
+    
+    /** 忽略大小写匹配名称。players.name 没有唯一约束，历史数据可能重名，所以返回列表而不是单个。 */
+    fun findAllByNameIgnoreCase(name: String): List<Player>
 }

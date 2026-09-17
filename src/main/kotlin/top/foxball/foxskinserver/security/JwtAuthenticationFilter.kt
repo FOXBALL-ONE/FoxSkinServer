@@ -18,10 +18,15 @@ class JwtAuthenticationFilter(
     private val jwtService: JwtService,
     private val userRepository: UserRepository,
     private val defaultAdminProperties: DefaultAdminProperties,
+    private val accessTokenRevocationStore: AccessTokenRevocationStore,
 ) : OncePerRequestFilter() {
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain) {
         val header = request.getHeader("Authorization")
-        if (header?.startsWith("Bearer ", ignoreCase = true) == true && SecurityContextHolder.getContext().authentication == null) {
+        if (header?.startsWith(
+                "Bearer ",
+                ignoreCase = true
+            ) == true && SecurityContextHolder.getContext().authentication == null
+        ) {
             val token = header.substring(7).trim()
             val fixedToken = defaultAdminProperties.fixedToken
             if (
@@ -42,12 +47,17 @@ class JwtAuthenticationFilter(
                 }
             } else {
                 val claims = jwtService.parse(token)
-                if (claims?.type == "access") {
-                    userRepository.findUserById(claims.subject)?.let { user ->
-                        if (user.permission != User.BANNED) {
-                            val principal = AuthenticatedUser.from(user)
-                            SecurityContextHolder.getContext().authentication =
-                                UsernamePasswordAuthenticationToken(principal, null, principal.authorities)
+                if (claims != null && claims.type == "access") {
+                    // 用户改过密码后，签发时间更早的 access token 一律作废。
+                    val changedAt = accessTokenRevocationStore.credentialsChangedAt(claims.subject)
+                    val revokedByCredentialChange = changedAt != null && claims.issuedAt < changedAt
+                    if (!revokedByCredentialChange) {
+                        userRepository.findUserById(claims.subject)?.let { user ->
+                            if (user.permission != User.BANNED) {
+                                val principal = AuthenticatedUser.from(user)
+                                SecurityContextHolder.getContext().authentication =
+                                    UsernamePasswordAuthenticationToken(principal, null, principal.authorities)
+                            }
                         }
                     }
                 }

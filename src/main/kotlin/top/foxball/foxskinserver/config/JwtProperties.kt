@@ -9,7 +9,7 @@ data class JwtProperties(
     var refresh: Refresh = Refresh(),
 ) {
     data class Access(var ttlSeconds: Long = 1800)
-
+    
     data class Refresh(
         var ttlSeconds: Long = 604800,
         var rotate: Boolean = true,
@@ -17,7 +17,7 @@ data class JwtProperties(
         var graceSeconds: Long = 30,
         var cookie: Cookie = Cookie(),
     )
-
+    
     data class Cookie(
         var name: String = "refresh_token",
         var domain: String = "",

@@ -27,11 +27,11 @@ class YggdrasilRateLimiter(private val redis: StringRedisTemplate) {
             THROTTLE_KEY_TTL_MILLIS.toString(),
         ) ?: 0L
     }
-
+    
     private fun digest(value: String): String = HexFormat.of().formatHex(
         MessageDigest.getInstance("SHA-256").digest(value.toByteArray(StandardCharsets.UTF_8)),
     )
-
+    
     companion object {
         private const val THROTTLE_KEY_TTL_MILLIS = 3_600_000L
         private val THROTTLE = DefaultRedisScript<Long>(

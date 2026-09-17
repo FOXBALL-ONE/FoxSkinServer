@@ -27,7 +27,7 @@ class YggdrasilController(
 ) {
     @GetMapping("", "/")
     fun metadata(): Map<String, Any> = service.metadata()
-
+    
     @PostMapping("/authserver/authenticate", consumes = [MediaType.APPLICATION_JSON_VALUE])
     fun authenticate(@RequestBody body: Map<String, Any?>): Map<String, Any> {
         if (body["username"] != null && body["username"] !is String ||
@@ -56,11 +56,14 @@ class YggdrasilController(
                 "IllegalArgumentException",
                 "selectedProfile 必须是对象。",
             )
-            selectedProfileBody["id"] !is String || selectedProfileBody["id"].toString().isBlank() -> throw YggdrasilException(
+            
+            selectedProfileBody["id"] !is String || selectedProfileBody["id"].toString()
+                .isBlank() -> throw YggdrasilException(
                 HttpStatus.BAD_REQUEST,
                 "IllegalArgumentException",
                 "selectedProfile.id 必须是非空字符串。",
             )
+            
             else -> selectedProfileBody["id"] as String
         }
         val requestUserBody = body["requestUser"]
@@ -86,7 +89,7 @@ class YggdrasilController(
         result.user?.let { response["user"] = it }
         return response
     }
-
+    
     @PostMapping("/authserver/refresh", consumes = [MediaType.APPLICATION_JSON_VALUE])
     fun refresh(@RequestBody body: Map<String, Any?>): Map<String, Any> {
         if (body["accessToken"] != null && body["accessToken"] !is String ||
@@ -106,11 +109,14 @@ class YggdrasilController(
                 "IllegalArgumentException",
                 "selectedProfile 必须是对象。",
             )
-            selectedProfileBody["id"] !is String || selectedProfileBody["id"].toString().isBlank() -> throw YggdrasilException(
+            
+            selectedProfileBody["id"] !is String || selectedProfileBody["id"].toString()
+                .isBlank() -> throw YggdrasilException(
                 HttpStatus.BAD_REQUEST,
                 "IllegalArgumentException",
                 "selectedProfile.id 必须是非空字符串。",
             )
+            
             else -> selectedProfileBody["id"] as String
         }
         val requestUserBody = body["requestUser"]
@@ -135,7 +141,7 @@ class YggdrasilController(
         result.user?.let { response["user"] = it }
         return response
     }
-
+    
     @PostMapping("/authserver/validate", consumes = [MediaType.APPLICATION_JSON_VALUE])
     fun validate(@RequestBody body: Map<String, Any?>): ResponseEntity<Void> {
         if (body["accessToken"] != null && body["accessToken"] !is String ||
@@ -150,7 +156,7 @@ class YggdrasilController(
         service.validate(body["accessToken"] as? String, body["clientToken"] as? String)
         return ResponseEntity.noContent().build()
     }
-
+    
     @PostMapping("/authserver/invalidate", consumes = [MediaType.APPLICATION_JSON_VALUE])
     fun invalidate(@RequestBody body: Map<String, Any?>): ResponseEntity<Void> {
         if (body["accessToken"] != null && body["accessToken"] !is String ||
@@ -165,7 +171,7 @@ class YggdrasilController(
         service.invalidate(body["accessToken"] as? String, body["clientToken"] as? String)
         return ResponseEntity.noContent().build()
     }
-
+    
     @PostMapping("/authserver/signout", consumes = [MediaType.APPLICATION_JSON_VALUE])
     fun signout(@RequestBody body: Map<String, Any?>): ResponseEntity<Void> {
         if (body["username"] != null && body["username"] !is String ||
@@ -188,7 +194,7 @@ class YggdrasilController(
         service.signout(body["username"] as? String, body["password"] as? String)
         return ResponseEntity.noContent().build()
     }
-
+    
     @PostMapping("/sessionserver/session/minecraft/join", consumes = [MediaType.APPLICATION_JSON_VALUE])
     fun join(@RequestBody body: Map<String, Any?>): ResponseEntity<Void> {
         if (body["accessToken"] != null && body["accessToken"] !is String ||
@@ -208,7 +214,7 @@ class YggdrasilController(
         )
         return ResponseEntity.noContent().build()
     }
-
+    
     @GetMapping("/sessionserver/session/minecraft/hasJoined")
     fun hasJoined(
         @RequestParam("username", required = false) username: String?,
@@ -218,7 +224,7 @@ class YggdrasilController(
         val profile = service.hasJoined(username, serverId, ip) ?: return ResponseEntity.noContent().build()
         return ResponseEntity.ok(profile)
     }
-
+    
     @GetMapping("/sessionserver/session/minecraft/profile/{uuid}")
     fun profile(
         @PathVariable("uuid") uuid: String,
@@ -227,8 +233,8 @@ class YggdrasilController(
         val profile = service.profile(uuid, unsigned) ?: return ResponseEntity.noContent().build()
         return ResponseEntity.ok(profile)
     }
-
+    
     @PostMapping("/api/profiles/minecraft", consumes = [MediaType.APPLICATION_JSON_VALUE])
     fun profiles(@RequestBody names: List<String>): List<Map<String, String>> = service.profiles(names)
-
+    
 }

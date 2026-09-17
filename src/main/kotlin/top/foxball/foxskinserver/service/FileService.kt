@@ -35,20 +35,20 @@ data class DownloadableFile(
 interface FileService {
     /** 保存一份或多份上传文件，并返回带短期链接的元数据。 */
     fun upload(ownerId: Long, files: List<MultipartFile>): List<FileDetails>
-
+    
     /** 列出当前用户的文件，并为每项重新签发链接。 */
     fun list(ownerId: Long, pageable: Pageable): Page<FileDetails>
-
+    
     /** 为指定文件批量签发新的下载链接。 */
     fun createDownloadLinks(
         ownerId: Long,
         fileIds: List<UUID>,
         scope: String? = null,
     ): List<FileDetails>
-
+    
     /** 为已完成工单领域授权的附件签发不含上传者标识的短期下载链接。 */
     fun createSupportTicketDownloadLinks(files: Collection<StoredFile>): List<FileDetails>
-
+    
     /** 校验文件、scope、到期时间与 HMAC 签名后打开本地文件。 */
     fun openSignedDownload(
         fileId: UUID,
@@ -59,16 +59,19 @@ interface FileService {
         authenticatedUserId: Long? = null,
         authenticatedAdmin: Boolean = false,
     ): DownloadableFile
-
+    
+    /** 读取公开可访问的文件内容，例如用户头像；不校验签名，调用方负责限定用途。 */
+    fun openPublicFile(fileId: UUID): DownloadableFile
+    
     /** 删除一份属于当前用户的文件；存在但归属其他用户时拒绝访问。 */
     fun delete(ownerId: Long, fileId: UUID)
-
+    
     /** 删除多份属于当前用户的文件；任一文件归属其他用户时拒绝访问。 */
     fun deleteBatch(ownerId: Long, fileIds: List<UUID>)
-
+    
     /** 删除用户拥有的全部文件，供用户彻底删除时清理文件元数据和存储内容。 */
     fun deleteAllByOwnerId(ownerId: Long)
-
+    
     /** 一次删除多个用户拥有的全部文件，供批量用户彻底删除时复用一次关联文件扫描。 */
     fun deleteAllByOwnerIds(ownerIds: Collection<Long>)
 }

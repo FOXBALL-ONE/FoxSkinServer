@@ -13,7 +13,7 @@ class UserCloset(
     /** 用户与纹理关联表的联合主键。 */
     @EmbeddedId
     var id: UserClosetId = UserClosetId(),
-
+    
     /** 用户在衣柜中为纹理设置的名称。 */
     @Column(name = "item_name", columnDefinition = "TEXT")
     var itemName: String? = null,
@@ -25,7 +25,7 @@ data class UserClosetId(
     /** 用户主键。 */
     @Column(name = "user_uid")
     var userId: Long = 0,
-
+    
     /** 纹理主键。 */
     @Column(name = "texture_tid")
     var textureId: Long = 0,

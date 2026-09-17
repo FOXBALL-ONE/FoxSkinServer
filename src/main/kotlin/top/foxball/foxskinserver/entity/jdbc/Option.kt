@@ -15,11 +15,11 @@ class Option(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
-
+    
     /** 配置项名称。 */
     @Column(name = "option_name", nullable = false, length = 50)
     var name: String = "",
-
+    
     /** 配置项内容，支持较长文本。 */
     @Column(name = "option_value", nullable = false, columnDefinition = "TEXT")
     var value: String = "",

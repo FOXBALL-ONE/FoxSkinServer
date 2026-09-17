@@ -17,7 +17,7 @@ class DefaultAdminInitializer(
 ) : ApplicationRunner {
     override fun run(args: ApplicationArguments) {
         if (!properties.enabled) return
-
+        
         val email = properties.email.trim().lowercase()
         val username = properties.username.trim()
         require(email.isNotBlank()) { "启用默认管理员时必须设置 DEFAULT_ADMIN_EMAIL" }
@@ -30,7 +30,7 @@ class DefaultAdminInitializer(
                 "启用默认管理员固定令牌时必须设置 DEFAULT_ADMIN_FIXED_TOKEN"
             }
         }
-
+        
         val user = userRepository.findByEmail(email) ?: userRepository.save(
             User(
                 email = email,
@@ -42,11 +42,11 @@ class DefaultAdminInitializer(
             )
         )
         logger.info("默认管理员账户已就绪: {}", email)
-
+        
         if (!fixedToken.enabled) return
         logger.info("默认管理员固定令牌已启用: {}", email)
     }
-
+    
     private companion object {
         val logger = LoggerFactory.getLogger(DefaultAdminInitializer::class.java)
     }

@@ -22,21 +22,24 @@ data class SignedDownloadLink(
 class FileLinkSigner(private val properties: FileProperties) {
     private val random = SecureRandom()
     private val encoder = Base64.getUrlEncoder().withoutPadding()
-
+    
     fun sign(fileId: UUID, scope: String, ttlSeconds: Long): SignedDownloadLink {
         val expires = Instant.now().plusSeconds(ttlSeconds.coerceAtLeast(1))
         val nonceBytes = ByteArray(18).also(random::nextBytes)
         val nonce = encoder.encodeToString(nonceBytes)
         return SignedDownloadLink(scope, expires, nonce, signature(fileId, scope, expires.epochSecond, nonce))
     }
-
+    
     fun isValid(fileId: UUID, scope: String, expiresAtEpochSeconds: Long, nonce: String, signature: String): Boolean {
         if (scope.isBlank() || nonce.isBlank() || signature.isBlank()) return false
         if (expiresAtEpochSeconds < Instant.now().epochSecond) return false
         val expected = signature(fileId, scope, expiresAtEpochSeconds, nonce)
-        return MessageDigest.isEqual(expected.toByteArray(StandardCharsets.US_ASCII), signature.toByteArray(StandardCharsets.US_ASCII))
+        return MessageDigest.isEqual(
+            expected.toByteArray(StandardCharsets.US_ASCII),
+            signature.toByteArray(StandardCharsets.US_ASCII)
+        )
     }
-
+    
     private fun signature(fileId: UUID, scope: String, expires: Long, nonce: String): String {
         val payload = "$fileId\n$scope\n$expires\n$nonce".toByteArray(StandardCharsets.UTF_8)
         val mac = Mac.getInstance("HmacSHA256")

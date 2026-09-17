@@ -45,11 +45,11 @@ class FileServiceImpl(
     private val linkSigner: FileLinkSigner,
 ) : FileService {
     private val storageRoot: Path = Paths.get(properties.storagePath).toAbsolutePath().normalize()
-
+    
     init {
         Files.createDirectories(storageRoot)
     }
-
+    
     override fun upload(ownerId: Long, files: List<MultipartFile>): List<FileDetails> {
         validateUploadBatch(files)
         val stored = mutableListOf<StoredUpload>()
@@ -74,12 +74,12 @@ class FileServiceImpl(
             throw ex
         }
     }
-
+    
     override fun list(ownerId: Long, pageable: Pageable): Page<FileDetails> =
         fileRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId, pageable).map { storedFile ->
             fileDetails(storedFile, "user:${storedFile.ownerId}")
         }
-
+    
     override fun createDownloadLinks(
         ownerId: Long,
         fileIds: List<UUID>,
@@ -93,10 +93,10 @@ class FileServiceImpl(
             fileDetails(storedFile, resolvedScope)
         }
     }
-
+    
     override fun createSupportTicketDownloadLinks(files: Collection<StoredFile>): List<FileDetails> =
         files.map { storedFile -> fileDetails(storedFile, SUPPORT_TICKET_DOWNLOAD_SCOPE) }
-
+    
     override fun openSignedDownload(
         fileId: UUID,
         scope: String,
@@ -121,7 +121,20 @@ class FileServiceImpl(
             sizeBytes = stored.sizeBytes,
         )
     }
-
+    
+    override fun openPublicFile(fileId: UUID): DownloadableFile {
+        val stored = fileRepository.findById(fileId).orElseThrow(::fileNotFound)
+        if (stored.storage != LOCAL_STORAGE) throw fileNotFound()
+        val path = resolveStoredPath(stored.relativePath)
+        if (!Files.isRegularFile(path)) throw fileNotFound()
+        return DownloadableFile(
+            path = path,
+            originalFilename = stored.originalFilename,
+            contentType = stored.contentType,
+            sizeBytes = stored.sizeBytes,
+        )
+    }
+    
     override fun delete(ownerId: Long, fileId: UUID) {
         val stored = fileRepository.findByIdAndOwnerId(fileId, ownerId) ?: run {
             val existing = fileRepository.findById(fileId).orElse(null)
@@ -132,26 +145,26 @@ class FileServiceImpl(
         }
         deleteStoredFiles(listOf(stored))
     }
-
+    
     override fun deleteBatch(ownerId: Long, fileIds: List<UUID>) {
         validateFileIds(fileIds)
         deleteStoredFiles(findOwnedFiles(ownerId, fileIds))
     }
-
+    
     override fun deleteAllByOwnerId(ownerId: Long) {
         deleteAllByOwnerIds(listOf(ownerId))
     }
-
+    
     override fun deleteAllByOwnerIds(ownerIds: Collection<Long>) {
         val distinctOwnerIds = ownerIds.distinct()
         if (distinctOwnerIds.isEmpty()) return
-
+        
         val files = fileRepository.findAllByOwnerIdInOrderByCreatedAtAsc(distinctOwnerIds)
         if (files.isEmpty()) return
-
+        
         deleteStoredFiles(files)
     }
-
+    
     private fun validateUploadBatch(files: List<MultipartFile>) {
         if (files.isEmpty()) throw ParamErrorException("At least one file is required.")
         if (files.size > properties.maxBatchSize) {
@@ -164,7 +177,7 @@ class FileServiceImpl(
             safeOriginalFilename(file)
         }
     }
-
+    
     private fun validateFileIds(fileIds: List<UUID>) {
         if (fileIds.isEmpty()) throw ParamErrorException("At least one file id is required.")
         if (fileIds.size > properties.maxBatchSize) {
@@ -174,7 +187,7 @@ class FileServiceImpl(
             throw ParamErrorException("File ids must not contain duplicates.")
         }
     }
-
+    
     private fun findOwnedFiles(ownerId: Long, fileIds: List<UUID>): List<StoredFile> {
         val files = fileRepository.findAllByIdInAndOwnerId(fileIds, ownerId)
         if (files.size != fileIds.size) {
@@ -185,7 +198,7 @@ class FileServiceImpl(
         }
         return files
     }
-
+    
     private fun storeUpload(ownerId: Long, multipartFile: MultipartFile): StoredUpload {
         val originalFilename = safeOriginalFilename(multipartFile)
         val identifier = UUID.randomUUID()
@@ -194,7 +207,7 @@ class FileServiceImpl(
         val relativePath = "$datePath/$storedFilename"
         val target = resolveStoredPath(relativePath)
         Files.createDirectories(target.parent)
-
+        
         val sha256 = try {
             writeAndHash(multipartFile, target)
         } catch (ex: Exception) {
@@ -215,7 +228,7 @@ class FileServiceImpl(
             path = target,
         )
     }
-
+    
     private fun writeAndHash(file: MultipartFile, target: Path): String {
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream.use { input ->
@@ -231,13 +244,13 @@ class FileServiceImpl(
         }
         return HexFormat.of().formatHex(digest.digest())
     }
-
+    
     private fun resolveIssuableScope(ownerId: Long, requestedScope: String?): String {
         val scope = requestedScope?.trim()?.takeIf(String::isNotEmpty) ?: "user:$ownerId"
         if (scope == "public" || scope == "user:$ownerId") return scope
         throw ParamErrorException("Only public or the current user's file scope may be issued.")
     }
-
+    
     private fun ttlFor(scope: String): Long = when {
         scope == "public" -> properties.signing.publicTtlSeconds
         scope.startsWith("user:") || scope == SUPPORT_TICKET_DOWNLOAD_SCOPE ->
@@ -248,7 +261,7 @@ class FileServiceImpl(
         scope.startsWith("order:") -> properties.signing.orderTtlSeconds
         else -> properties.signing.resolvedUserTtl(properties.downloadTokenTtlSeconds)
     }
-
+    
     private fun fileDetails(storedFile: StoredFile, scope: String): FileDetails {
         val signedLink = linkSigner.sign(storedFile.id, scope, ttlFor(scope))
         val url = UriComponentsBuilder.fromUriString(properties.baseUrl.trimEnd('/'))
@@ -266,7 +279,7 @@ class FileServiceImpl(
             scope = signedLink.scope,
         )
     }
-
+    
     /**
      * 校验 scope 是否允许下载当前文件。
      *
@@ -288,9 +301,9 @@ class FileServiceImpl(
         scope == "role:admin" -> authenticatedUserId != null && authenticatedAdmin
         else -> false
     }
-
+    
     private fun fileNotFound() = ResourceNotFoundException("File does not exist or is no longer available.")
-
+    
     private fun deleteStoredFiles(files: List<StoredFile>) {
         // 先移动而非直接删除：元数据事务/flush 失败时可将内容恢复到原路径。
         val staged = mutableListOf<StagedDeletion>()
@@ -309,7 +322,7 @@ class FileServiceImpl(
         }
         staged.forEach { deletePathQuietly(it.stagedPath) }
     }
-
+    
     private fun stageForDeletion(stored: StoredFile): StagedDeletion? {
         val originalPath = resolveStoredPath(stored.relativePath)
         if (!Files.exists(originalPath)) return null
@@ -319,7 +332,7 @@ class FileServiceImpl(
         moveFile(originalPath, trashPath)
         return StagedDeletion(originalPath, trashPath)
     }
-
+    
     private fun restoreStagedFiles(staged: List<StagedDeletion>) {
         staged.asReversed().forEach { deletion ->
             runCatching {
@@ -329,7 +342,7 @@ class FileServiceImpl(
             }
         }
     }
-
+    
     private fun moveFile(source: Path, target: Path) {
         // 同一存储根目录内优先原子移动；不支持时退回普通移动以兼容文件系统。
         try {
@@ -338,7 +351,7 @@ class FileServiceImpl(
             Files.move(source, target)
         }
     }
-
+    
     private fun resolveStoredPath(relativePath: String): Path {
         val resolved = storageRoot.resolve(relativePath).normalize()
         if (!resolved.startsWith(storageRoot)) {
@@ -346,7 +359,7 @@ class FileServiceImpl(
         }
         return resolved
     }
-
+    
     private fun safeOriginalFilename(file: MultipartFile): String {
         val filename = file.originalFilename
             ?.substringAfterLast('/')
@@ -362,26 +375,26 @@ class FileServiceImpl(
         }
         return filename
     }
-
+    
     private fun extensionOf(filename: String): String {
         val extension = filename.substringAfterLast('.', missingDelimiterValue = "")
         return if (extension.matches(EXTENSION_PATTERN)) ".${extension.lowercase(Locale.ROOT)}" else ""
     }
-
+    
     private fun deletePathQuietly(path: Path) {
         runCatching { Files.deleteIfExists(path) }
     }
-
+    
     private data class StoredUpload(
         val metadata: StoredFile,
         val path: Path,
     )
-
+    
     private data class StagedDeletion(
         val originalPath: Path,
         val stagedPath: Path,
     )
-
+    
     private companion object {
         const val MAX_ORIGINAL_FILENAME_LENGTH = 255
         const val MIN_PRINTABLE_CHARACTER = 32

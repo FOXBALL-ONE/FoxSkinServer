@@ -25,7 +25,7 @@ class SecurityConfig(
 ) {
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
-
+    
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain = http
         .csrf { it.disable() }
@@ -33,7 +33,8 @@ class SecurityConfig(
         .authorizeHttpRequests {
             it.requestMatchers(
                 "/api/auth/login", "/api/auth/refresh", "/api/auth/logout",
-                yggdrasilProperties.apiPath, "${yggdrasilProperties.apiPath}/**", "/textures/**", "/actuator/health", "/error",
+                yggdrasilProperties.apiPath, "${yggdrasilProperties.apiPath}/**", "/textures/**", "/avatar/**",
+                "/actuator/health", "/error",
             ).permitAll()
                 .anyRequest().authenticated()
         }
@@ -43,7 +44,7 @@ class SecurityConfig(
         }
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
         .build()
-
+    
     private fun writeError(response: HttpServletResponse, status: Int, message: String) {
         response.status = status
         response.contentType = "application/json;charset=UTF-8"

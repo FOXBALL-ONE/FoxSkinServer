@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestPart
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 import top.foxball.foxskinserver.handler.ResourceNotFoundException
+import top.foxball.foxskinserver.security.AuthenticatedUser
 import top.foxball.foxskinserver.service.FileService
 import top.foxball.foxskinserver.service.SUPPORT_TICKET_DOWNLOAD_SCOPE
 import top.foxball.foxskinserver.shared.Response
@@ -49,7 +50,7 @@ class FileController(
      */
     @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun upload(
-        @AuthenticationPrincipal userId: Long,
+        @AuthenticationPrincipal principal: AuthenticatedUser,
         @RequestPart("files") @Size(min = 1) files: List<MultipartFile>,
     ): ResponseEntity<Response> {
         data class FileData(
@@ -70,10 +71,10 @@ class FileController(
             val scope: String,
             val storage: String,
         )
-
+        
         data class Response(val list: List<FileData>)
-
-        val list = fileService.upload(userId, files).map { details ->
+        
+        val list = fileService.upload(principal.userId, files).map { details ->
             val file = details.file
             FileData(
                 id = file.id,
@@ -93,7 +94,7 @@ class FileController(
             .data(rs)
             .build()
     }
-
+    
     /**
      * @api 获取我的文件列表
      * @param page 分页页码
@@ -101,7 +102,7 @@ class FileController(
      */
     @GetMapping("/mine")
     fun getMyFiles(
-        @AuthenticationPrincipal userId: Long,
+        @AuthenticationPrincipal principal: AuthenticatedUser,
         @RequestParam("page", defaultValue = "1") @Min(1) page: Int,
         @RequestParam("size", defaultValue = "25") @Min(1) @Max(100) pageSize: Int,
     ): ResponseEntity<Response> {
@@ -123,15 +124,15 @@ class FileController(
             val scope: String,
             val storage: String,
         )
-
+        
         data class Pagination(val count: Int)
-
+        
         data class Response(
             val list: List<FileData>,
             val pagination: Pagination,
         )
-
-        val pagedData = fileService.list(userId, PageRequest.of(page - 1, pageSize))
+        
+        val pagedData = fileService.list(principal.userId, PageRequest.of(page - 1, pageSize))
         val list = pagedData.content.map { details ->
             val file = details.file
             FileData(
@@ -152,7 +153,7 @@ class FileController(
             .data(rs)
             .build()
     }
-
+    
     /**
      * @api 批量刷新文件下载链接
      * @param fileIds 文件 ID 列表
@@ -160,7 +161,7 @@ class FileController(
      */
     @PostMapping("/batch/links")
     fun createBatchDownloadLinks(
-        @AuthenticationPrincipal userId: Long,
+        @AuthenticationPrincipal principal: AuthenticatedUser,
         @RequestParam("file_ids") @Size(min = 1) fileIds: List<UUID>,
         @RequestParam("scope", required = false) scope: String?,
     ): ResponseEntity<Response> {
@@ -182,10 +183,10 @@ class FileController(
             val scope: String,
             val storage: String,
         )
-
+        
         data class Response(val list: List<FileData>)
-
-        val list = fileService.createDownloadLinks(userId, fileIds, scope).map { details ->
+        
+        val list = fileService.createDownloadLinks(principal.userId, fileIds, scope).map { details ->
             val file = details.file
             FileData(
                 id = file.id,
@@ -205,7 +206,7 @@ class FileController(
             .data(rs)
             .build()
     }
-
+    
     /**
      * @api 下载公开或用户文件
      * @param fileId 文件 ID
@@ -239,7 +240,7 @@ class FileController(
             .header("X-Content-Type-Options", "nosniff")
             .body(FileSystemResource(downloadable.path))
     }
-
+    
     /**
      * @api 安全下载受保护文件
      * @param fileId 文件 ID
@@ -250,7 +251,7 @@ class FileController(
      */
     @GetMapping("/{file_id}/secure-download")
     fun secureDownload(
-        @AuthenticationPrincipal userId: Long,
+        @AuthenticationPrincipal principal: AuthenticatedUser,
         authentication: Authentication,
         @PathVariable("file_id") fileId: UUID,
         @RequestParam("scope") scope: String,
@@ -265,7 +266,7 @@ class FileController(
             expiresAtEpochSeconds = expires,
             nonce = nonce,
             signature = signature,
-            authenticatedUserId = userId,
+            authenticatedUserId = principal.userId,
             authenticatedAdmin = authentication.authorities.any { it.authority == "ROLE_ADMIN" },
         )
         val contentType = downloadable.contentType
@@ -281,43 +282,43 @@ class FileController(
             .header("X-Content-Type-Options", "nosniff")
             .body(FileSystemResource(downloadable.path))
     }
-
+    
     /**
      * @api 删除文件
      * @param fileId 文件 ID
      */
     @DeleteMapping("/{file_id}")
     fun deleteFile(
-        @AuthenticationPrincipal userId: Long,
+        @AuthenticationPrincipal principal: AuthenticatedUser,
         @PathVariable("file_id") fileId: UUID,
     ): ResponseEntity<Response> {
         data class Response(
             val id: UUID,
             val deleted: Boolean,
         )
-
-        fileService.delete(userId, fileId)
+        
+        fileService.delete(principal.userId, fileId)
         val rs = Response(fileId, true)
         return builder.ok()
             .data(rs)
             .build()
     }
-
+    
     /**
      * @api 批量删除文件
      * @param fileIds 文件 ID 列表
      */
     @DeleteMapping("/batch")
     fun deleteFiles(
-        @AuthenticationPrincipal userId: Long,
+        @AuthenticationPrincipal principal: AuthenticatedUser,
         @RequestParam("file_ids") @Size(min = 1) fileIds: List<UUID>,
     ): ResponseEntity<Response> {
         data class Response(
             val ids: List<UUID>,
             val deleted: Boolean,
         )
-
-        fileService.deleteBatch(userId, fileIds)
+        
+        fileService.deleteBatch(principal.userId, fileIds)
         val rs = Response(fileIds, true)
         return builder.ok()
             .data(rs)
