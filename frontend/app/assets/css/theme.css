@@ -1,0 +1,106 @@
+/*
+ * 深色模式变量表。
+ *
+ * 主题完全在前端生效：preferences store 把选择写进 cookie，插件把它落到 <html data-theme>，
+ * 页面样式只引用变量，不关心当前是哪个主题。
+ */
+:root {
+  color-scheme: light;
+
+  --surface-page: #eff1ed;
+  --surface-panel: #f7f8f5;
+  --surface-raised: #ffffff;
+  --surface-muted: #eef1ea;
+  --surface-stage-from: #d2dfcc;
+  --surface-stage-to: #bfcfc7;
+  --stage-grid: rgba(73, 98, 83, .11);
+
+  --border: #d4dbd3;
+  --border-soft: #e2e7df;
+  --border-strong: #cfd6cd;
+
+  --text: #202724;
+  --text-strong: #29332e;
+  --text-body: #3c4a41;
+  --text-muted: #6f7d74;
+  --text-faint: #859188;
+  --text-inverse: #f5f8f2;
+
+  --accent: #d2e56c;
+  --accent-hover: #dfed8d;
+  --accent-strong: #78964d;
+  --accent-ink: #23302b;
+  --accent-tag-bg: #d9ee91;
+  --accent-tag-ink: #3e5736;
+  --accent-soft-bg: #e6eed8;
+
+  --sidebar: #202b28;
+  --sidebar-text: #aeb9b0;
+  --sidebar-text-strong: #f5f8f2;
+  --sidebar-active: #34423c;
+  --sidebar-mark: #d2e56c;
+
+  --ok: #42644f;
+  --ok-bg: #d9eddf;
+  --danger: #a64e43;
+  --danger-bg: #f4e6e3;
+  --danger-border: #c9a49c;
+  --cape-ink: #3d5164;
+  --cape-bg: #cfe2f0;
+
+  --shadow-pop: rgba(24, 32, 28, .45);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --surface-page: #131917;
+  --surface-panel: #1b2320;
+  --surface-raised: #232c28;
+  --surface-muted: #212a26;
+  --surface-stage-from: #25302a;
+  --surface-stage-to: #1d2622;
+  --stage-grid: rgba(150, 180, 158, .1);
+
+  --border: #2f3a34;
+  --border-soft: #29332e;
+  --border-strong: #3a463f;
+
+  --text: #e6ece5;
+  --text-strong: #f2f6ef;
+  --text-body: #cfd8d0;
+  --text-muted: #9aa79e;
+  --text-faint: #7f8c83;
+  --text-inverse: #131917;
+
+  --accent: #b9cd5c;
+  --accent-hover: #c8da72;
+  --accent-strong: #a8c469;
+  --accent-ink: #141a13;
+  --accent-tag-bg: #384425;
+  --accent-tag-ink: #d7e79a;
+  --accent-soft-bg: #2b3620;
+
+  --sidebar: #0f1513;
+  --sidebar-text: #94a29a;
+  --sidebar-text-strong: #f2f6ef;
+  --sidebar-active: #25322c;
+  --sidebar-mark: #b9cd5c;
+
+  --ok: #8fd0a5;
+  --ok-bg: #1e3327;
+  --danger: #e59a8c;
+  --danger-bg: #3a2521;
+  --danger-border: #6d433a;
+  --cape-ink: #a9c8e0;
+  --cape-bg: #24333f;
+
+  --shadow-pop: rgba(0, 0, 0, .6);
+}
+
+/* 主题切换只改变量，过渡放在容器上，避免每个元素各自声明。 */
+body {
+  background: var(--surface-page);
+  color: var(--text);
+  transition: background-color .2s, color .2s;
+}
