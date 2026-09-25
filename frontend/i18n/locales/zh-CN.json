@@ -51,7 +51,11 @@
     "failed": "登录失败，请检查账号信息",
     "passwordChanged": "密码已更新，请用新密码重新登录。",
     "noAccount": "还没有账号？",
-    "backHome": "← 返回首页"
+    "backHome": "← 返回首页",
+    "oauthDivider": "或使用第三方登录",
+    "oauthButton": "使用 {provider} 继续",
+    "oauthFailed": "跳转第三方登录失败，请稍后再试",
+    "goRegister": "注册新账号"
   },
   "account": {
     "eyebrow": "ACCOUNT CENTER / 01",
@@ -103,7 +107,18 @@
     "passwordFailed": "修改失败，请稍后重试",
     "submitting": "提交中...",
     "updatePassword": "更新密码",
-    "identifierHint": "用户名 {'@'}{username} 与邮箱 {email} 涉及登录与邮箱验证流程，暂不支持在此修改。"
+    "identifierHint": "用户名 {'@'}{username} 与邮箱 {email} 涉及登录与邮箱验证流程，暂不支持在此修改。",
+    "bindings": "第三方账号绑定",
+    "bindingsDisabled": "站点未启用第三方登录扩展组件，管理员可在配置中开启 QQ 或 OIDC 登录。",
+    "bind": "绑定",
+    "unbind": "解绑",
+    "boundAt": "已绑定 · {date}",
+    "notBound": "未绑定",
+    "bindOk": "{provider} 绑定成功",
+    "bindFailed": "发起绑定失败，请稍后再试",
+    "unbindOk": "已解除绑定",
+    "unbindFailed": "解绑失败，请稍后再试",
+    "bindingsHint": "绑定后可以直接用对应平台登录；解绑前请确保账号还有其他可用的登录方式。"
   },
   "closet": {
     "eyebrow": "MY WARDROBE / {count}",
@@ -187,5 +202,43 @@
     "use": "使用",
     "unbind": "解除绑定",
     "bindFailed": "绑定失败"
+  },
+  "register": {
+    "eyebrow": "JOIN THE SERVER.",
+    "headlineLine1": "创建账号，",
+    "headlineLine2": "即刻登场。",
+    "lead": "注册 FoxSkin，把你的皮肤、披风与角色档案都放进同一个衣柜。",
+    "kicker": "CREATE ACCOUNT",
+    "title": "注册你的账号。",
+    "intro": "一分钟完成注册，立即管理你的游戏身份。",
+    "emailLabel": "邮箱",
+    "emailPlaceholder": "用于登录与验证，例如 you{'@'}example.com",
+    "usernameLabel": "用户名",
+    "usernamePlaceholder": "2-50 位字母、数字或下划线",
+    "nicknameLabel": "昵称（可选）",
+    "nicknamePlaceholder": "展示给其他人的名字，留空则使用用户名",
+    "passwordLabel": "密码",
+    "passwordPlaceholder": "8-64 位密码",
+    "confirmLabel": "确认密码",
+    "confirmPlaceholder": "再输入一次密码",
+    "emptyFields": "请填写邮箱、用户名和密码",
+    "invalidEmail": "邮箱格式不正确",
+    "invalidUsername": "用户名需为 2-50 位字母、数字或下划线",
+    "invalidPassword": "密码长度需在 8-64 个字符之间",
+    "passwordMismatch": "两次输入的密码不一致",
+    "submitting": "注册中...",
+    "submit": "创建账号",
+    "failed": "注册失败，请稍后再试",
+    "haveAccount": "已经有账号了？",
+    "goLogin": "直接登录"
+  },
+  "oauth": {
+    "working": "正在完成登录...",
+    "workingHint": "正在确认第三方授权结果，请稍候。",
+    "errorTitle": "第三方登录未完成",
+    "backLogin": "返回登录",
+    "backHome": "返回首页",
+    "failed": "登录流程出现异常，请重试。",
+    "missingPayload": "回调缺少有效数据，请重新发起登录。"
   }
 }

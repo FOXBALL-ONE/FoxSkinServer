@@ -4,8 +4,11 @@ const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 
+const email = ref("");
 const username = ref("");
+const nickname = ref("");
 const password = ref("");
+const confirm = ref("");
 const showPassword = ref(false);
 const localError = ref("");
 
@@ -14,39 +17,46 @@ const redirectPath = computed(() => {
     return typeof value === "string" && value.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
 });
 
-/** 改密后所有 token 都已被吊销，这里给用户一句明确的解释。 */
-const passwordChangedNotice = computed(() => route.query.reason === "password_changed");
-
 onMounted(async () => {
-    // 提供商列表是公开接口，无论是否已登录都先取到，第三方登录按钮才能渲染。
-    await auth.loadOauthProviders();
     await auth.hydrate();
-    // Pinia 会把 setup store 上的 ref 解包，这里不能再写 .value
     if (auth.isAuthenticated && auth.user) await router.replace(redirectPath.value);
 });
 
 async function submit() {
     localError.value = "";
-    if (!username.value.trim() || !password.value) {
-        localError.value = t("login.emptyFields");
+    const trimmedEmail = email.value.trim();
+    const trimmedUsername = username.value.trim();
+    if (!trimmedEmail || !trimmedUsername || !password.value) {
+        localError.value = t("register.emptyFields");
         return;
     }
-    const success = await auth.login(username.value.trim(), password.value);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmedEmail)) {
+        localError.value = t("register.invalidEmail");
+        return;
+    }
+    if (!/^[A-Za-z0-9_]{2,50}$/.test(trimmedUsername)) {
+        localError.value = t("register.invalidUsername");
+        return;
+    }
+    if (password.value.length < 8 || password.value.length > 64) {
+        localError.value = t("register.invalidPassword");
+        return;
+    }
+    if (password.value !== confirm.value) {
+        localError.value = t("register.passwordMismatch");
+        return;
+    }
+    // 后端注册即签发令牌，成功等同登录完成。
+    const success = await auth.register({
+        email: trimmedEmail,
+        username: trimmedUsername,
+        password: password.value,
+        nickname: nickname.value.trim() || undefined,
+    });
     if (success) {
         await router.replace(redirectPath.value);
     } else {
-        localError.value = auth.lastError || t("login.failed");
-    }
-}
-
-/** 整页跳转到提供商授权页；回调由 /oauth/callback 接手并回到 redirectPath。 */
-async function oauth(providerId: string) {
-    localError.value = "";
-    try {
-        await auth.startOAuth(providerId, "login", redirectPath.value);
-    } catch (error: unknown) {
-        const value = error as { data?: { message?: string }; statusMessage?: string; message?: string };
-        localError.value = value.data?.message || value.statusMessage || value.message || t("login.oauthFailed");
+        localError.value = auth.lastError || t("register.failed");
     }
 }
 </script>
@@ -61,9 +71,9 @@ async function oauth(providerId: string) {
           <span class="brand__mark">F</span><span>{{ t('login.brand') }}</span>
         </NuxtLink>
         <div class="login-visual__copy">
-          <p class="eyebrow"><span /> {{ t('login.eyebrow') }}</p>
-          <h1>{{ t('login.headlineLine1') }}<br><em>{{ t('login.headlineLine2') }}</em></h1>
-          <p>{{ t('login.lead') }}</p>
+          <p class="eyebrow"><span /> {{ t('register.eyebrow') }}</p>
+          <h1>{{ t('register.headlineLine1') }}<br><em>{{ t('register.headlineLine2') }}</em></h1>
+          <p>{{ t('register.lead') }}</p>
         </div>
         <p class="login-visual__footer">{{ t('login.footer') }}</p>
       </div>
@@ -74,45 +84,44 @@ async function oauth(providerId: string) {
         <NuxtLink :aria-label="t('shell.backHome')" class="mobile-brand" to="/">
           <span class="brand__mark">F</span><span>{{ t('login.brand') }}</span>
         </NuxtLink>
-        <p class="section-kicker">{{ t('login.kicker') }}</p>
-        <h2>{{ t('login.title') }}</h2>
-        <p class="intro">{{ t('login.intro') }}</p>
-
-        <p v-if="passwordChangedNotice" class="form-notice" role="status">{{ t('login.passwordChanged') }}</p>
+        <p class="section-kicker">{{ t('register.kicker') }}</p>
+        <h2>{{ t('register.title') }}</h2>
+        <p class="intro">{{ t('register.intro') }}</p>
 
         <form class="login-form" @submit.prevent="submit">
-          <label for="username">{{ t('login.usernameLabel') }}</label>
-          <input id="username" v-model="username" autocomplete="username" :placeholder="t('login.usernamePlaceholder')"
-                 required type="text">
+          <label for="register-email">{{ t('register.emailLabel') }}</label>
+          <input id="register-email" v-model="email" autocomplete="email"
+                 :placeholder="t('register.emailPlaceholder')" required type="email">
+
+          <label for="register-username">{{ t('register.usernameLabel') }}</label>
+          <input id="register-username" v-model="username" autocomplete="username"
+                 :placeholder="t('register.usernamePlaceholder')" required type="text">
+
+          <label for="register-nickname">{{ t('register.nicknameLabel') }}</label>
+          <input id="register-nickname" v-model="nickname" maxlength="50"
+                 :placeholder="t('register.nicknamePlaceholder')" type="text">
 
           <div class="field-heading">
-            <label for="password">{{ t('login.passwordLabel') }}</label>
+            <label for="register-password">{{ t('register.passwordLabel') }}</label>
             <button type="button" @click="showPassword = !showPassword">
               {{ showPassword ? t('login.hidePassword') : t('login.showPassword') }}
             </button>
           </div>
-          <input id="password" v-model="password" :type="showPassword ? 'text' : 'password'"
-                 autocomplete="current-password" :placeholder="t('login.passwordPlaceholder')" required>
+          <input id="register-password" v-model="password" :type="showPassword ? 'text' : 'password'"
+                 autocomplete="new-password" :placeholder="t('register.passwordPlaceholder')" required>
+
+          <label for="register-confirm">{{ t('register.confirmLabel') }}</label>
+          <input id="register-confirm" v-model="confirm" :type="showPassword ? 'text' : 'password'"
+                 autocomplete="new-password" :placeholder="t('register.confirmPlaceholder')" required>
 
           <p v-if="localError" class="form-error" role="alert">{{ localError }}</p>
           <button class="submit-button" type="submit" :disabled="auth.loading">
-            <span>{{ auth.loading ? t('login.submitting') : t('login.submit') }}</span><span aria-hidden="true">↗</span>
+            <span>{{ auth.loading ? t('register.submitting') : t('register.submit') }}</span><span aria-hidden="true">↗</span>
           </button>
         </form>
 
-        <div v-if="auth.oauthProviders.length" class="oauth">
-          <p class="oauth__divider"><span>{{ t('login.oauthDivider') }}</span></p>
-          <div class="oauth__buttons">
-            <button v-for="item in auth.oauthProviders" :key="item.id" class="oauth__button" type="button"
-                    @click="oauth(item.id)">
-              <span class="oauth__mark" aria-hidden="true">{{ item.display_name.slice(0, 1) }}</span>
-              <span>{{ t('login.oauthButton', { provider: item.display_name }) }}</span>
-            </button>
-          </div>
-        </div>
-
-        <p class="register-hint">{{ t('login.noAccount') }}
-          <NuxtLink class="register-hint__link" to="/register">{{ t('login.goRegister') }}</NuxtLink>
+        <p class="register-hint">{{ t('register.haveAccount') }}
+          <NuxtLink class="register-hint__link" :to="{ path: '/login', query: route.query }">{{ t('register.goLogin') }}</NuxtLink>
         </p>
         <NuxtLink class="back-link" to="/">{{ t('login.backHome') }}</NuxtLink>
       </div>
@@ -147,11 +156,10 @@ h1 em { color: var(--accent); font-style: normal; }
 .login-panel__inner { width: min(100%, 390px); }
 .mobile-brand { display: none; color: var(--text); margin-bottom: 58px; }
 .section-kicker { margin: 0 0 17px; }
-h2 { margin: 0; font-size: clamp(36px, 4vw, 50px); line-height: 1.05; }
+h2 { margin: 0; font-size: clamp(34px, 4vw, 46px); line-height: 1.05; }
 .intro { margin: 17px 0 39px; color: var(--text-muted); font-size: 14px; line-height: 1.6; }
-.form-notice { margin: 0 0 22px; padding: 9px 12px; color: var(--ok); background: var(--ok-bg); font-size: 12px; }
 .login-form label { display: block; margin-bottom: 8px; color: var(--text-muted); font: 10px 'DM Mono', monospace; letter-spacing: .08em; }
-.login-form input { width: 100%; height: 48px; margin-bottom: 22px; padding: 0 13px; border: 1px solid var(--border); border-radius: 0; outline: 0; background: var(--surface-raised); color: var(--text); font-size: 14px; transition: border-color .2s, box-shadow .2s; }
+.login-form input { width: 100%; height: 46px; margin-bottom: 18px; padding: 0 13px; border: 1px solid var(--border); border-radius: 0; outline: 0; background: var(--surface-raised); color: var(--text); font-size: 14px; transition: border-color .2s, box-shadow .2s; }
 .login-form input:focus { border-color: var(--accent-strong); box-shadow: 0 0 0 3px rgba(158,184,52,.15); }
 .field-heading { display: flex; align-items: center; justify-content: space-between; }
 .field-heading button { margin-bottom: 8px; padding: 0; border: 0; background: none; color: var(--text-faint); font: 10px 'DM Mono', monospace; text-decoration: underline; }
@@ -159,16 +167,9 @@ h2 { margin: 0; font-size: clamp(36px, 4vw, 50px); line-height: 1.05; }
 .submit-button { width: 100%; height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 0 17px 0 20px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700; transition: background .2s, transform .2s; }
 .submit-button:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-2px); }
 .submit-button:disabled { cursor: wait; opacity: .65; }
-.register-hint { margin: 28px 0 0; color: var(--text-faint); text-align: center; font-size: 12px; }
+.register-hint { margin: 26px 0 0; color: var(--text-faint); text-align: center; font-size: 12px; }
 .register-hint__link { color: var(--text); font-weight: 600; text-decoration: underline; }
-.oauth { margin-top: 34px; }
-.oauth__divider { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; color: var(--text-faint); font: 10px 'DM Mono', monospace; letter-spacing: .08em; }
-.oauth__divider::before, .oauth__divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-.oauth__buttons { display: grid; gap: 10px; }
-.oauth__button { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 44px; padding: 0 14px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--text); font-size: 13px; transition: border-color .2s, background .2s; }
-.oauth__button:hover { border-color: var(--accent-strong); }
-.oauth__mark { display: grid; width: 22px; height: 22px; place-items: center; background: var(--accent); color: var(--accent-ink); font: 700 11px 'Space Grotesk', sans-serif; }
-.back-link { display: block; margin-top: 54px; color: var(--text-faint); text-align: center; font: 10px 'DM Mono', monospace; letter-spacing: .05em; text-decoration: none; }
+.back-link { display: block; margin-top: 44px; color: var(--text-faint); text-align: center; font: 10px 'DM Mono', monospace; letter-spacing: .05em; text-decoration: none; }
 @media (max-width: 800px) { .login-page { display: block; }.login-visual { display: none; }.login-panel { min-height: 100svh; padding: 32px 24px; align-items: start; }.login-panel__inner { padding-top: 4vh; }.mobile-brand { display: inline-flex; }.login-panel .section-kicker { margin-top: 16px; } }
 @media (min-width: 801px) and (max-height: 700px) { .login-visual__content { padding-top: 28px; padding-bottom: 28px; }.login-visual__copy { margin: 11vh 0 auto; }.login-panel { padding-top: 28px; padding-bottom: 28px; }.mobile-brand { margin-bottom: 32px; } }
 </style>

@@ -51,7 +51,11 @@
     "failed": "Sign-in failed, please check your credentials",
     "passwordChanged": "Password updated. Please sign in again with the new password.",
     "noAccount": "No account yet?",
-    "backHome": "← Back to home"
+    "backHome": "← Back to home",
+    "oauthDivider": "Or continue with",
+    "oauthButton": "Continue with {provider}",
+    "oauthFailed": "Could not start the sign-in, please try again later",
+    "goRegister": "Create an account"
   },
   "account": {
     "eyebrow": "ACCOUNT CENTER / 01",
@@ -103,7 +107,18 @@
     "passwordFailed": "Change failed, please try again",
     "submitting": "Submitting...",
     "updatePassword": "Update password",
-    "identifierHint": "Username {'@'}{username} and email {email} are tied to sign-in and verification, so they cannot be changed here."
+    "identifierHint": "Username {'@'}{username} and email {email} are tied to sign-in and verification, so they cannot be changed here.",
+    "bindings": "Connected accounts",
+    "bindingsDisabled": "The third-party sign-in extension is not enabled. An admin can turn on QQ or OIDC in the configuration.",
+    "bind": "Connect",
+    "unbind": "Disconnect",
+    "boundAt": "Connected · {date}",
+    "notBound": "Not connected",
+    "bindOk": "{provider} connected",
+    "bindFailed": "Could not start connecting, please try again later",
+    "unbindOk": "Disconnected",
+    "unbindFailed": "Could not disconnect, please try again later",
+    "bindingsHint": "Use connected platforms to sign in directly. Make sure the account keeps another way to sign in before disconnecting."
   },
   "closet": {
     "eyebrow": "MY WARDROBE / {count}",
@@ -187,5 +202,43 @@
     "use": "Use",
     "unbind": "Unbind",
     "bindFailed": "Could not bind"
+  },
+  "register": {
+    "eyebrow": "JOIN THE SERVER.",
+    "headlineLine1": "Create your account,",
+    "headlineLine2": "jump right in.",
+    "lead": "Register on FoxSkin and keep your skins, capes and characters in one closet.",
+    "kicker": "CREATE ACCOUNT",
+    "title": "Create your account.",
+    "intro": "Sign up in a minute and take control of your in-game identity.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "Used for sign-in and verification, e.g. you{'@'}example.com",
+    "usernameLabel": "Username",
+    "usernamePlaceholder": "2-50 letters, digits or underscores",
+    "nicknameLabel": "Nickname (optional)",
+    "nicknamePlaceholder": "Shown to others, defaults to your username",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "8-64 characters",
+    "confirmLabel": "Confirm password",
+    "confirmPlaceholder": "Type the password again",
+    "emptyFields": "Please fill in email, username and password",
+    "invalidEmail": "That email address does not look right",
+    "invalidUsername": "Username must be 2-50 letters, digits or underscores",
+    "invalidPassword": "Password must be 8-64 characters long",
+    "passwordMismatch": "The two passwords do not match",
+    "submitting": "Creating...",
+    "submit": "Create account",
+    "failed": "Registration failed, please try again later",
+    "haveAccount": "Already have an account?",
+    "goLogin": "Sign in"
+  },
+  "oauth": {
+    "working": "Finishing sign-in...",
+    "workingHint": "We're confirming the authorization result, please wait.",
+    "errorTitle": "Sign-in did not complete",
+    "backLogin": "Back to sign-in",
+    "backHome": "Back home",
+    "failed": "Something went wrong during sign-in, please try again.",
+    "missingPayload": "The callback is missing valid data, please start again."
   }
 }
