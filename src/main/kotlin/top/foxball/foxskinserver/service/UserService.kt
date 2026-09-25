@@ -2,12 +2,14 @@ package top.foxball.foxskinserver.service
 
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
 import top.foxball.foxskinserver.entity.jdbc.User
 import top.foxball.foxskinserver.handler.ForbiddenException
 import top.foxball.foxskinserver.handler.ParamErrorException
+import top.foxball.foxskinserver.handler.UserAlreadyExistsException
 import top.foxball.foxskinserver.handler.UserNotFoundException
 import top.foxball.foxskinserver.repository.UserRepository
 import javax.imageio.ImageIO
@@ -21,6 +23,7 @@ class UserService(
     private val capeService: CapeService,
     private val reportService: ReportService,
     private val fileService: FileService,
+    private val passwordEncoder: PasswordEncoder,
 ) {
     
     fun getUserById(id: Long): User? {
@@ -38,6 +41,44 @@ class UserService(
     fun deleteById(id: Long) = userRepository.deleteById(id)
     
     fun deleteAllById(ids: Iterable<Long>) = userRepository.deleteAllById(ids)
+    
+    /**
+     * 开放注册：校验邮箱/用户名规则与唯一性后落库，账号保持未验证状态，邮箱验证流程另行完成。
+     * 注册成功不直接发验证邮件；站点是否要求验证由 YGGDRASIL_REQUIRE_VERIFIED 等开关决定。
+     */
+    fun register(email: String, username: String, password: String, nickname: String?): User {
+        val normalizedEmail = email.trim().lowercase()
+        if (!EMAIL_PATTERN.matches(normalizedEmail)) throw ParamErrorException("邮箱格式不正确")
+        val normalizedUsername = username.trim()
+        if (!USERNAME_PATTERN.matches(normalizedUsername)) {
+            throw ParamErrorException("用户名需为 2-50 位字母、数字或下划线")
+        }
+        if (password.length !in PASSWORD_MIN_LENGTH..PASSWORD_MAX_LENGTH) {
+            throw ParamErrorException("密码长度需在 $PASSWORD_MIN_LENGTH-$PASSWORD_MAX_LENGTH 个字符之间")
+        }
+        if (password.toByteArray(Charsets.UTF_8).size > PASSWORD_MAX_BYTES) {
+            throw ParamErrorException("密码过长，请改用更短的密码")
+        }
+        if (userRepository.findByEmail(normalizedEmail) != null) {
+            throw UserAlreadyExistsException("该邮箱已被注册")
+        }
+        if (userRepository.findByUsername(normalizedUsername) != null) {
+            throw UserAlreadyExistsException("该用户名已被使用")
+        }
+        val trimmedNickname = nickname?.trim().orEmpty()
+        if (trimmedNickname.length > NICKNAME_MAX_LENGTH) {
+            throw ParamErrorException("昵称长度不能超过 $NICKNAME_MAX_LENGTH 个字符")
+        }
+        val user = User(
+            email = normalizedEmail,
+            password = requireNotNull(passwordEncoder.encode(password)) { "密码加密失败" },
+            username = normalizedUsername,
+            nickname = trimmedNickname.ifBlank { normalizedUsername },
+            verified = false,
+            verificationToken = "",
+        )
+        return userRepository.save(user)
+    }
     
     /** 管理端用户列表：按关键字（用户名/邮箱/昵称）与权限等级检索。 */
     fun search(keyword: String, permission: Int?, pageable: Pageable): Page<User> =
@@ -150,8 +191,23 @@ class UserService(
     private companion object {
         val VALID_PERMISSIONS = setOf(User.BANNED, User.NORMAL, User.ADMIN, User.SUPER_ADMIN)
         
+        /** 注册用户名规则：字母/数字/下划线，2-50 位。 */
+        val USERNAME_PATTERN = Regex("^[A-Za-z0-9_]{2,50}$")
+        
+        /** 站点邮箱格式底线校验，完整可达性由邮箱验证流程兜底。 */
+        val EMAIL_PATTERN = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
+        
         /** users.nickname 列长度上限。 */
         const val NICKNAME_MAX_LENGTH = 50
+        
+        /** 密码字符数下限，与 AuthService 保持一致。 */
+        const val PASSWORD_MIN_LENGTH = 8
+        
+        /** 密码字符数上限。 */
+        const val PASSWORD_MAX_LENGTH = 64
+        
+        /** BCrypt 只处理前 72 字节，超过会直接抛异常，这里提前拦下。 */
+        const val PASSWORD_MAX_BYTES = 72
         
         /** 头像文件体积上限。 */
         const val AVATAR_MAX_BYTES = 2L * 1024 * 1024

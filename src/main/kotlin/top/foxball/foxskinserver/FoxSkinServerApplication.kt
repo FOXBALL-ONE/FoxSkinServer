@@ -5,12 +5,14 @@ import org.springframework.boot.runApplication
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import top.foxball.foxskinserver.config.DefaultAdminProperties
 import top.foxball.foxskinserver.config.FileProperties
+import top.foxball.foxskinserver.config.OAuthProperties
 import top.foxball.foxskinserver.config.YggdrasilProperties
 
 @SpringBootApplication
 @EnableConfigurationProperties(
     DefaultAdminProperties::class,
     FileProperties::class,
+    OAuthProperties::class,
     YggdrasilProperties::class,
 )
 class FoxSkinServerApplication

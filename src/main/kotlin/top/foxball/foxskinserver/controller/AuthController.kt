@@ -12,12 +12,14 @@ import org.springframework.web.bind.annotation.RestController
 import top.foxball.foxskinserver.config.JwtProperties
 import top.foxball.foxskinserver.security.AuthenticatedUser
 import top.foxball.foxskinserver.service.AuthService
+import top.foxball.foxskinserver.service.UserService
 import top.foxball.foxskinserver.shared.Response
 import top.foxball.foxskinserver.shared.ResponseBuilder
 
 @RestController
 class AuthController(
     private val authService: AuthService,
+    private val userService: UserService,
     private val responseBuilder: ResponseBuilder,
     private val jwtProperties: JwtProperties,
 ) {
@@ -38,6 +40,27 @@ class AuthController(
         val tokens = authService.login(identifier, password)
         response.addHeader("Set-Cookie", refreshCookie(tokens.refreshToken).toString())
         return responseBuilder.ok().data(TokenData(tokens.accessToken, tokens.refreshToken, tokens.expiresIn)).build()
+    }
+    
+    @PostMapping("/api/auth/register")
+    fun register(
+        @RequestParam("email") email: String,
+        @RequestParam("username") username: String,
+        @RequestParam("password") password: String,
+        @RequestParam("nickname", required = false) nickname: String?,
+        response: HttpServletResponse
+    ): ResponseEntity<Response> {
+        data class TokenData(
+            @param:JsonProperty("access_token") val accessToken: String,
+            @param:JsonProperty("refresh_token") val refreshToken: String,
+            @param:JsonProperty("expires_in") val expiresIn: Long,
+        )
+        
+        val user = userService.register(email, username, password, nickname)
+        // 与登录一致：注册完成即签发令牌，省去一次重复输入；改密/封禁等既有吊销机制同样覆盖该会话。
+        val tokens = authService.issue(AuthenticatedUser.from(user))
+        response.addHeader("Set-Cookie", refreshCookie(tokens.refreshToken).toString())
+        return responseBuilder.created().data(TokenData(tokens.accessToken, tokens.refreshToken, tokens.expiresIn)).build()
     }
     
     @PostMapping("/api/auth/refresh")
