@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 const { t, setLocale } = useI18n()
 const auth = useAuthStore()
 const preferences = usePreferencesStore()
+const route = useRoute()
 const router = useRouter()
 
 type Feedback = { tone: 'ok' | 'error'; text: string }
@@ -125,6 +126,42 @@ async function changeLocale(value: string) {
   await setLocale(value)
 }
 
+const bindNotice = ref<Feedback | null>(null)
+const bindingBusy = ref(false)
+const bindingsEnabled = computed(() => auth.oauthProviders.length > 0)
+
+function connectionOf(providerId: string) {
+  return auth.connections.find(item => item.provider === providerId) ?? null
+}
+
+/** 绑定：拿授权地址整页跳走，提供商回跳后经 /oauth/callback 带着结果回来。 */
+async function bind(providerId: string) {
+  bindNotice.value = null
+  bindingBusy.value = true
+  try {
+    await auth.startOAuth(providerId, 'bind')
+  } catch (error: unknown) {
+    const value = error as { data?: { message?: string }; statusMessage?: string; message?: string }
+    bindNotice.value = { tone: 'error', text: value.data?.message || value.statusMessage || value.message || t('account.bindFailed') }
+  } finally {
+    bindingBusy.value = false
+  }
+}
+
+async function unbind(providerId: string) {
+  bindNotice.value = null
+  bindingBusy.value = true
+  try {
+    await auth.unbind(providerId)
+    bindNotice.value = { tone: 'ok', text: t('account.unbindOk') }
+  } catch (error: unknown) {
+    const value = error as { data?: { message?: string }; statusMessage?: string; message?: string }
+    bindNotice.value = { tone: 'error', text: value.data?.message || value.statusMessage || value.message || t('account.unbindFailed') }
+  } finally {
+    bindingBusy.value = false
+  }
+}
+
 onMounted(async () => {
   await auth.hydrate()
   if (!auth.isAuthenticated || !auth.user) {
@@ -134,6 +171,17 @@ onMounted(async () => {
   await auth.loadProfile()
   applyProfile()
   loadingProfile.value = false
+  // 绑定卡片：提供商列表与当前绑定并行取；绑定成功的回跳会带 ?bound=provider。
+  await auth.loadOauthProviders()
+  if (auth.oauthProviders.length) {
+    await auth.loadConnections()
+    const bound = route.query.bound
+    if (typeof bound === 'string' && bound) {
+      const name = auth.oauthProviders.find(item => item.id === bound)?.display_name ?? bound
+      bindNotice.value = { tone: 'ok', text: t('account.bindOk', { provider: name }) }
+      await router.replace({ path: '/account' })
+    }
+  }
 })
 </script>
 
@@ -255,6 +303,37 @@ onMounted(async () => {
 
         <p class="hint">{{ t('account.identifierHint', { username: profile.username, email: profile.email }) }}</p>
       </article>
+
+      <article class="panel">
+        <header class="panel__head">
+          <p class="eyebrow">CONNECTIONS</p>
+          <h2>{{ t('account.bindings') }}</h2>
+        </header>
+
+        <p v-if="!bindingsEnabled" class="hint">{{ t('account.bindingsDisabled') }}</p>
+        <template v-else>
+          <ul class="bindings">
+            <li v-for="item in auth.oauthProviders" :key="item.id" class="bindings__item">
+              <div class="bindings__info">
+                <b><span class="bindings__mark" aria-hidden="true">{{ item.display_name.slice(0, 1) }}</span>{{ item.display_name }}</b>
+                <small v-if="connectionOf(item.id)">
+                  {{ t('account.boundAt', { date: formatDate(connectionOf(item.id)?.created_at) }) }}
+                </small>
+                <small v-else>{{ t('account.notBound') }}</small>
+              </div>
+              <button v-if="connectionOf(item.id)" class="bindings__action bindings__action--danger" type="button"
+                      :disabled="bindingBusy" @click="unbind(item.id)">
+                {{ t('account.unbind') }}
+              </button>
+              <button v-else class="bindings__action" type="button" :disabled="bindingBusy" @click="bind(item.id)">
+                {{ t('account.bind') }}
+              </button>
+            </li>
+          </ul>
+          <p v-if="bindNotice" :class="`form-feedback form-feedback--${bindNotice.tone}`" role="status">{{ bindNotice.text }}</p>
+          <p class="hint">{{ t('account.bindingsHint') }}</p>
+        </template>
+      </article>
     </section>
   </AppShell>
 </template>
@@ -303,6 +382,15 @@ onMounted(async () => {
 .primary-button { display: inline-flex; align-items: center; gap: 26px; min-height: 44px; margin-top: 20px; padding: 0 16px 0 19px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700; transition: transform .2s, background .2s; }
 .primary-button:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-2px); }
 .primary-button:disabled { cursor: wait; opacity: .65; }
+.bindings { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.bindings__item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 13px; border: 1px solid var(--border); background: var(--surface-raised); }
+.bindings__info b { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+.bindings__mark { display: grid; width: 22px; height: 22px; place-items: center; background: var(--accent); color: var(--accent-ink); font: 700 11px 'Space Grotesk', sans-serif; }
+.bindings__info small { display: block; margin-top: 4px; color: var(--text-faint); font: 10px 'DM Mono', monospace; }
+.bindings__action { min-height: 34px; padding: 0 13px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 600; transition: border-color .2s, color .2s; }
+.bindings__action:hover:not(:disabled) { border-color: var(--accent-strong); color: var(--text-strong); }
+.bindings__action--danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+.bindings__action:disabled { cursor: wait; opacity: .6; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @media (max-width: 950px) {

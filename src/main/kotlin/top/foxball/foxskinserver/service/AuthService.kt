@@ -90,7 +90,8 @@ class AuthService(
         )
     }
     
-    private fun issue(user: AuthenticatedUser): IssuedTokens {
+    /** 签发一对新令牌；站内密码登录、OAuth 首次登录与注册完成后的自动登录共用。 */
+    fun issue(user: AuthenticatedUser): IssuedTokens {
         val access = jwtService.createAccessToken(user)
         val refresh = jwtService.createRefreshToken(user)
         val claims = jwtService.parse(refresh) ?: throw AccessTokenExpiredException("无法创建令牌")

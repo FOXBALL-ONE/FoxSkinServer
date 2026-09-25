@@ -143,6 +143,27 @@ shopmall:
     profile-search-max: "${YGGDRASIL_PROFILE_SEARCH_MAX:5}"
     # 认证/登出账号节流间隔；参照 Blessing Skin 默认 1000ms，设为 0 可关闭（不建议生产关闭）。
     throttle-interval-millis: "${YGGDRASIL_THROTTLE_INTERVAL_MILLIS:1000}"
+  oauth:
+    # 第三方登录扩展组件：配置了对应凭据即启用该提供商，全部留空时组件保持静默。
+    # 站点对外地址，用于拼接提供商回跳的 redirect_uri；同域反代部署可留空，由请求头推导。
+    public-url: "${FOXSKIN_OAUTH_PUBLIC_URL:}"
+    # 授权完成后浏览器回到的前端入口；前后端分域部署（本地开发）必须显式配置。
+    frontend-url: "${FOXSKIN_OAUTH_FRONTEND_URL:}"
+    # 授权 state 的一次性凭据有效期（秒）。
+    state-ttl-seconds: "${FOXSKIN_OAUTH_STATE_TTL_SECONDS:300}"
+    qq:
+      # QQ 互联 AppID/AppKey，配置后登录页出现 QQ 登录；回调域需在 QQ 互联控制台登记。
+      client-id: "${FOXSKIN_OAUTH_QQ_CLIENT_ID:}"
+      client-secret: "${FOXSKIN_OAUTH_QQ_CLIENT_SECRET:}"
+      scope: "${FOXSKIN_OAUTH_QQ_SCOPE:get_user_info}"
+      display-name: "${FOXSKIN_OAUTH_QQ_DISPLAY_NAME:QQ}"
+    oidc:
+      # 任意 OIDC 提供商的 Issuer（如 https://sso.example.com/realms/foxskin），配置后启用 OIDC 登录。
+      issuer: "${FOXSKIN_OAUTH_OIDC_ISSUER:}"
+      client-id: "${FOXSKIN_OAUTH_OIDC_CLIENT_ID:}"
+      client-secret: "${FOXSKIN_OAUTH_OIDC_CLIENT_SECRET:}"
+      scope: "${FOXSKIN_OAUTH_OIDC_SCOPE:openid profile email}"
+      display-name: "${FOXSKIN_OAUTH_OIDC_DISPLAY_NAME:OIDC}"
   file:
     storage-path: "${FILE_STORAGE_PATH:./storage}"
     base-url: "${FILE_BASE_URL:http://localhost:8080}"

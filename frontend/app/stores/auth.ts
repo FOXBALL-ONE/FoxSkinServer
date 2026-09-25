@@ -35,6 +35,21 @@ export interface AccountProfile {
     register_at: string;
 }
 
+/** 第三方登录提供商（OAuth/OIDC 扩展组件）暴露给前端的形态。 */
+export interface OAuthProviderInfo {
+    id: string;
+    display_name: string;
+}
+
+/** 当前用户的一条第三方账号绑定。 */
+export interface UserConnectionInfo {
+    provider: string;
+    open_id: string;
+    nickname: string;
+    avatar_url: string | null;
+    created_at: string;
+}
+
 function errorMessage(error: unknown): string {
     const value = error as {
         statusMessage?: string;
@@ -55,6 +70,10 @@ export const useAuthStore = defineStore("auth", () => {
     const loading = ref(false);
     const hydrated = ref(false);
     const lastError = ref<string | null>(null);
+    /** 已启用的第三方登录提供商；未配置任何提供商时为空数组，登录页随之隐藏入口。 */
+    const oauthProviders = ref<OAuthProviderInfo[]>([]);
+    /** 当前用户的第三方账号绑定列表。 */
+    const connections = ref<UserConnectionInfo[]>([]);
     const http = useHttp();
 
     const isAuthenticated = computed(() => Boolean(accessToken.value));
@@ -83,6 +102,71 @@ export const useAuthStore = defineStore("auth", () => {
         }
         user.value = await http.get<AuthUser>("/auth/me");
         return user.value;
+    }
+
+    /**
+     * 发起第三方登录/绑定：后端返回授权页地址后整页跳转过去。
+     * 跳走前把当前路径带上，回调完成后能回到原位。
+     */
+    async function startOAuth(providerId: string, mode: "login" | "bind", redirectPath?: string) {
+        const params: Record<string, string> = mode === "bind" ? {mode: "bind"} : {redirect: redirectPath ?? "/dashboard"};
+        const result = await http.get<{ authorize_url: string }>(`/auth/oauth/${providerId}/redirect`, params);
+        if (import.meta.client && result.authorize_url) {
+            window.location.href = result.authorize_url;
+        }
+    }
+
+    /** OAuth 回调落地页调用：接管后端换到的 access token 并拉取当前用户。 */
+    async function applyOAuthToken(token: string) {
+        accessToken.value = token;
+        hydrated.value = false;
+        await loadCurrentUser();
+    }
+
+    /** 拉取启用中的第三方登录提供商列表（公开接口）。 */
+    async function loadOauthProviders() {
+        try {
+            oauthProviders.value = await http.get<OAuthProviderInfo[]>("/auth/oauth/providers");
+        } catch {
+            // 提供商列表失败不阻塞登录页，按未启用处理。
+            oauthProviders.value = [];
+        }
+    }
+
+    /** 拉取当前用户的第三方绑定列表。 */
+    async function loadConnections() {
+        connections.value = await http.get<UserConnectionInfo[]>("/auth/connections");
+    }
+
+    /** 解绑第三方账号；后端会在只剩这一种登录方式时拒绝。 */
+    async function unbind(providerId: string) {
+        await http.delete(`/auth/connections/${providerId}`);
+        await loadConnections();
+    }
+
+    /** 开放注册；成功即拿到令牌（后端已写 refresh cookie），等价于完成登录。 */
+    async function register(input: { email: string; username: string; password: string; nickname?: string }) {
+        loading.value = true;
+        lastError.value = null;
+        try {
+            const tokens = await http.post<AuthTokens, { email: string; username: string; password: string; nickname?: string }>(
+                "/auth/register",
+                {
+                    email: input.email,
+                    username: input.username,
+                    password: input.password,
+                    ...(input.nickname ? {nickname: input.nickname} : {}),
+                },
+            );
+            accessToken.value = tokens.access_token;
+            await loadCurrentUser();
+            return true;
+        } catch (error: unknown) {
+            lastError.value = errorMessage(error);
+            return false;
+        } finally {
+            loading.value = false;
+        }
     }
 
     async function hydrate() {
@@ -193,9 +277,17 @@ export const useAuthStore = defineStore("auth", () => {
         loading,
         hydrated,
         lastError,
+        oauthProviders,
+        connections,
         isAuthenticated,
         isAdmin,
         login,
+        register,
+        startOAuth,
+        applyOAuthToken,
+        loadOauthProviders,
+        loadConnections,
+        unbind,
         loadCurrentUser,
         loadProfile,
         updateProfile,
