@@ -17,6 +17,7 @@ const items = [
   { key: 'closet', labelKey: 'shell.nav.closet', to: '/closet' },
   { key: 'capes', labelKey: 'shell.nav.capes', to: '/closet?type=cape' },
   { key: 'characters', labelKey: 'shell.nav.characters', to: '/characters' },
+  { key: 'library', labelKey: 'shell.nav.library', to: '/library' },
 ]
 
 const displayName = computed(() => auth.user?.nickname || auth.user?.username || 'Alex')
