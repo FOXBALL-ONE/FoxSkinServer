@@ -23,6 +23,9 @@ import top.foxball.foxskinserver.security.OAuthStateStore
 import top.foxball.foxskinserver.service.AuthService
 import top.foxball.foxskinserver.service.oauth.OAuthConnectionService
 import top.foxball.foxskinserver.service.oauth.OAuthProviderRegistry
+import top.foxball.foxskinserver.service.MojangAuthenticationStateService
+import top.foxball.foxskinserver.service.MojangBindingService
+import top.foxball.foxskinserver.service.VerifiedMojangProfile
 import top.foxball.foxskinserver.shared.Response
 import top.foxball.foxskinserver.shared.ResponseBuilder
 import java.net.URLEncoder
@@ -44,6 +47,8 @@ class OAuthController(
     private val responseBuilder: ResponseBuilder,
     private val oauthProperties: OAuthProperties,
     private val jwtProperties: JwtProperties,
+    private val mojangBindingService: MojangBindingService,
+    private val mojangStateService: MojangAuthenticationStateService,
 ) {
     @GetMapping("/api/auth/oauth/providers")
     fun providers(): ResponseEntity<Response> {
@@ -61,6 +66,7 @@ class OAuthController(
         @PathVariable("provider") provider: String,
         @RequestParam("mode", required = false) mode: String?,
         @RequestParam("redirect", required = false) redirect: String?,
+        @RequestParam("player_id", required = false) playerId: Long?,
         @AuthenticationPrincipal principal: AuthenticatedUser?,
         request: HttpServletRequest,
     ): ResponseEntity<Response> {
@@ -70,7 +76,11 @@ class OAuthController(
         
         val impl = registry.byId(provider)
             ?: throw ResourceNotFoundException("未启用该登录方式")
+        if (impl.id == MICROSOFT_PROVIDER_ID) mojangStateService.requireEnabled()
         val isBind = mode == "bind"
+        if (impl.id == MICROSOFT_PROVIDER_ID && !isBind) {
+            throw ParamErrorException("Microsoft 登录只用于已登录用户的正版绑定，请先登录 FoxSkin")
+        }
         val userId = if (isBind) principal?.userId ?: throw UnauthorizedException("绑定第三方账号前请先登录") else 0
         val safeRedirect = if (isBind) "" else sanitizePath(redirect)
         val state = stateStore.issue(
@@ -79,6 +89,7 @@ class OAuthController(
                 mode = if (isBind) OAuthStateStore.Mode.BIND else OAuthStateStore.Mode.LOGIN,
                 redirect = safeRedirect,
                 userId = userId,
+                playerId = if (isBind) playerId ?: 0 else 0,
             ),
         )
         val authorizeUrl = impl.authorizeUrl(callbackUrl(impl.id, request), state)
@@ -98,6 +109,16 @@ class OAuthController(
         if (payload == null || impl == null) {
             return redirectToFrontend(request, "error=${encode("授权状态已过期，请重新发起登录")}")
         }
+        if (impl.id == MICROSOFT_PROVIDER_ID) {
+            try {
+                mojangStateService.requireEnabled()
+                if (payload.mode != OAuthStateStore.Mode.BIND) {
+                    throw ParamErrorException("Microsoft 登录只用于已登录用户的正版绑定")
+                }
+            } catch (exception: BusinessException) {
+                return redirectToFrontend(request, "error=${encode(exception.message)}")
+            }
+        }
         if (code.isNullOrBlank()) {
             return redirectToFrontend(request, "error=${encode("提供商未返回授权码，请重新发起登录")}")
         }
@@ -105,7 +126,16 @@ class OAuthController(
             val identity = impl.exchange(code, callbackUrl(impl.id, request))
             when (payload.mode) {
                 OAuthStateStore.Mode.BIND -> {
-                    connectionService.bind(payload.userId, impl.id, identity)
+                    if (impl.id == "microsoft") {
+                        if (payload.playerId <= 0) throw ParamErrorException("请选择要绑定的角色")
+                        val profile = VerifiedMojangProfile(
+                            id = java.util.UUID.fromString(identity.openId),
+                            name = identity.nickname,
+                        )
+                        mojangBindingService.bind(payload.userId, payload.playerId, profile)
+                    } else {
+                        connectionService.bind(payload.userId, impl.id, identity)
+                    }
                     redirectToFrontend(request, "bind=ok&provider=${encode(impl.id)}")
                 }
                 
@@ -120,7 +150,7 @@ class OAuthController(
                 }
             }
         } catch (exception: BusinessException) {
-            redirectToFrontend(request, "error=${encode(exception.message ?: "登录失败，请稍后再试")}")
+            redirectToFrontend(request, "error=${encode(exception.message)}")
         }
     }
     
@@ -156,6 +186,9 @@ class OAuthController(
     }
     
     /** redirect 参数只接受站内相对路径，防开放重定向。 */
+    private companion object {
+        private const val MICROSOFT_PROVIDER_ID = "microsoft"
+    }
     private fun sanitizePath(value: String?): String =
         if (value != null && value.startsWith("/") && !value.startsWith("//")) value else "/dashboard"
     

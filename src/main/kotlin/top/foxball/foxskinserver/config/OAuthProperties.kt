@@ -21,6 +21,8 @@ data class OAuthProperties(
     var qq: Qq = Qq(),
     /** 通用 OIDC 提供商配置。 */
     var oidc: Oidc = Oidc(),
+    /** Microsoft OAuth 应用配置；配置 client-id 与 client-secret 后启用正版绑定。 */
+    var microsoft: Microsoft = Microsoft(),
 ) {
     /** QQ 互联（connect.qq.com）凭据。 */
     data class Qq(
@@ -44,5 +46,12 @@ data class OAuthProperties(
         var scope: String = "openid profile email",
         /** 前端展示名。 */
         var displayName: String = "OIDC",
+    )
+
+    data class Microsoft(
+        var clientId: String = "",
+        var clientSecret: String = "",
+        var scope: String = "XboxLive.signin offline_access",
+        var displayName: String = "Microsoft",
     )
 }
