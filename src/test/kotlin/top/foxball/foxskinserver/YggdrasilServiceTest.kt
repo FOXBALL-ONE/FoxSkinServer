@@ -55,7 +55,11 @@ class YggdrasilServiceTest {
         val service = service(players = players)
 
         val profile = service.profile(player.uuid.toString(), unsigned = false)!!
-        val property = (profile["properties"] as List<*>).single() as Map<*, *>
+        val properties = profile["properties"] as List<*>
+        val property = properties.map { it as Map<*, *> }.single { it["name"] == "textures" }
+        assertTrue(properties.map { it as Map<*, *> }.any {
+            it["name"] == "uploadableTextures" && it["value"] == "skin,cape"
+        })
         val payload = String(Base64.getDecoder().decode(property["value"] as String))
 
         assertTrue(payload.contains("\"signatureRequired\":true"))
@@ -149,7 +153,11 @@ class YggdrasilServiceTest {
         val service = service(players = players, textures = textures)
 
         val profile = service.profile(player.uuid.toString(), unsigned = true)!!
-        val property = (profile["properties"] as List<*>).single() as Map<*, *>
+        val properties = profile["properties"] as List<*>
+        val property = properties.map { it as Map<*, *> }.single { it["name"] == "textures" }
+        assertTrue(properties.map { it as Map<*, *> }.any {
+            it["name"] == "uploadableTextures" && it["value"] == "skin,cape"
+        })
         val payload = String(Base64.getDecoder().decode(property["value"] as String))
 
         assertFalse(payload.contains("\"metadata\""))

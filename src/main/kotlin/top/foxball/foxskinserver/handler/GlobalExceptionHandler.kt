@@ -14,8 +14,8 @@ import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.core.AuthenticationException
-import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.HttpMediaTypeNotSupportedException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingRequestHeaderException
 import org.springframework.web.bind.MissingServletRequestParameterException
@@ -24,11 +24,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.multipart.MaxUploadSizeExceededException
+import org.springframework.web.multipart.support.MissingServletRequestPartException
 import org.springframework.web.servlet.NoHandlerFoundException
 import org.springframework.web.servlet.resource.NoResourceFoundException
+import top.foxball.foxskinserver.config.YggdrasilProperties
 import top.foxball.foxskinserver.shared.Response
 import top.foxball.foxskinserver.shared.ResponseBuilder
-import top.foxball.foxskinserver.config.YggdrasilProperties
 
 /** 全局异常处理：将各类异常转换为统一 [Response] 响应。 */
 @Order(2)
@@ -112,7 +113,15 @@ class GlobalExceptionHandler(
     
     /** Yggdrasil 客户端不识别站内 Response 包装，必须返回协议规定的错误字段。 */
     @ExceptionHandler(YggdrasilException::class)
-    fun onYggdrasilException(ex: YggdrasilException): ResponseEntity<Map<String, String>> {
+    fun onYggdrasilException(req: HttpServletRequest, ex: YggdrasilException): ResponseEntity<Map<String, String>> {
+        log.info(
+            "Yggdrasil 协议错误: method={}, path={}, status={}, error={}, message={}",
+            req.method,
+            req.requestURI,
+            ex.httpStatus.value(),
+            ex.error,
+            ex.message
+        )
         val body = linkedMapOf("error" to ex.error, "errorMessage" to ex.message)
         if (ex.causeMessage.isNotBlank()) body["cause"] = ex.causeMessage
         val response = ResponseEntity.status(ex.httpStatus)
@@ -264,9 +273,27 @@ class GlobalExceptionHandler(
             .message("请求体格式错误或必填字段缺失")
             .build()
     }
+
+    @ExceptionHandler(MissingServletRequestPartException::class)
+    fun onMissingServletRequestPart(
+        req: HttpServletRequest,
+        ex: MissingServletRequestPartException,
+    ): ResponseEntity<*> {
+        if (isYggdrasilRequest(req)) return yggdrasilError(
+            HttpStatus.BAD_REQUEST,
+            "IllegalArgumentException",
+            "缺少 multipart 参数：${ex.requestPartName}",
+        )
+        return builder.badRequest().message("Required multipart part \"${ex.requestPartName}\" is not provided!").build()
+    }
     
     @ExceptionHandler(MaxUploadSizeExceededException::class)
-    fun onMaxUploadSizeExceededException(): ResponseEntity<Response> {
+    fun onMaxUploadSizeExceededException(req: HttpServletRequest): ResponseEntity<*> {
+        if (isYggdrasilRequest(req)) return yggdrasilError(
+            HttpStatus.PAYLOAD_TOO_LARGE,
+            "IllegalArgumentException",
+            "上传文件超过大小限制。",
+        )
         return builder.status(HttpStatus.PAYLOAD_TOO_LARGE)
             .message("Uploaded file exceeds the configured size limit.")
             .build()

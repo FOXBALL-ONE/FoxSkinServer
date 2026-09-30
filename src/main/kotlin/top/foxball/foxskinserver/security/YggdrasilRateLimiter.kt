@@ -1,11 +1,12 @@
 package top.foxball.foxskinserver.security
 
+import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.data.redis.core.script.DefaultRedisScript
 import org.springframework.stereotype.Repository
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
-import java.util.HexFormat
+import java.util.*
 
 /**
  * Yggdrasil 认证接口的账号级节流器。
@@ -15,17 +16,20 @@ import java.util.HexFormat
  */
 @Repository
 class YggdrasilRateLimiter(private val redis: StringRedisTemplate) {
+    private val log = LoggerFactory.getLogger(YggdrasilRateLimiter::class.java)
     fun retryAfterMillis(identity: String, intervalMillis: Long): Long {
         if (identity.isBlank() || intervalMillis <= 0) return 0
         val now = System.currentTimeMillis()
         val key = "yggdrasil:throttle:${digest(identity)}"
-        return redis.execute(
+        val retryAfter = redis.execute(
             THROTTLE,
             listOf(key),
             now.toString(),
             intervalMillis.toString(),
             THROTTLE_KEY_TTL_MILLIS.toString(),
         ) ?: 0L
+        if (retryAfter > 0) log.info("Yggdrasil 请求触发账号限流: retry_after_millis={}", retryAfter)
+        return retryAfter
     }
     
     private fun digest(value: String): String = HexFormat.of().formatHex(
