@@ -3,7 +3,7 @@ package top.foxball.foxskinserver.service
 import org.springframework.stereotype.Service
 import top.foxball.foxskinserver.entity.jdbc.StoredFile
 import top.foxball.foxskinserver.repository.StoredFileRepository
-import java.util.UUID
+import java.util.*
 
 @Service
 class StoredFileService(private val repository: StoredFileRepository) {

@@ -1,13 +1,12 @@
 package top.foxball.foxskinserver.security
 
+import org.springframework.stereotype.Service
 import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
-import org.springframework.stereotype.Service
 import top.foxball.foxskinserver.config.JwtProperties
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
-import java.util.Base64
-import java.util.UUID
+import java.util.*
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -35,7 +34,7 @@ class JwtService(
     fun createRefreshToken(user: AuthenticatedUser): String =
         createToken(user.userId, "refresh", properties.refresh.ttlSeconds)
     
-    fun parse(token: kotlin.String): JwtClaims? {
+    fun parse(token: String): JwtClaims? {
         return try {
             val parts = token.split('.')
             if (parts.size != 3) return null

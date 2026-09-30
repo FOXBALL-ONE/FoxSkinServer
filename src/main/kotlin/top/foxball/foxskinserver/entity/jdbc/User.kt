@@ -1,14 +1,8 @@
 package top.foxball.foxskinserver.entity.jdbc
 
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.Table
-import jakarta.persistence.Transient
+import jakarta.persistence.*
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 
 /** Blessing Skin 兼容的用户实体。 */
 @Entity

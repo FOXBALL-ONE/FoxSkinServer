@@ -1,20 +1,16 @@
 package top.foxball.foxskinserver.entity.jdbc
 
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.Index
-import jakarta.persistence.Table
-import jakarta.persistence.UniqueConstraint
+import jakarta.persistence.*
 import java.time.LocalDateTime
 
 /** 第三方登录（OAuth/OIDC）账号绑定实体，把皮肤站用户和外部平台的 OpenID 关联起来。 */
 @Entity
 @Table(
     name = "user_connections",
-    uniqueConstraints = [UniqueConstraint(name = "uk_user_connection_provider_open_id", columnNames = ["provider", "open_id"])],
+    uniqueConstraints = [UniqueConstraint(
+        name = "uk_user_connection_provider_open_id",
+        columnNames = ["provider", "open_id"]
+    )],
     indexes = [Index(name = "ix_user_connection_user_id", columnList = "user_id")],
 )
 class UserConnection(

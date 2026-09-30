@@ -3,16 +3,9 @@ package top.foxball.foxskinserver.controller
 import com.fasterxml.jackson.annotation.JsonProperty
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.DeleteMapping
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PatchMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RestController
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.annotation.AuthenticationPrincipal
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.RequestPart
+import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import top.foxball.foxskinserver.security.AuthenticatedUser
 import top.foxball.foxskinserver.service.AuthService
@@ -21,7 +14,7 @@ import top.foxball.foxskinserver.service.UserService
 import top.foxball.foxskinserver.shared.Response
 import top.foxball.foxskinserver.shared.ResponseBuilder
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 
 @RestController
 class UserController(

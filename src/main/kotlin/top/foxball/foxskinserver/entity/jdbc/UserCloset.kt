@@ -1,10 +1,6 @@
 package top.foxball.foxskinserver.entity.jdbc
 
-import jakarta.persistence.Column
-import jakarta.persistence.Embeddable
-import jakarta.persistence.EmbeddedId
-import jakarta.persistence.Entity
-import jakarta.persistence.Table
+import jakarta.persistence.*
 
 /** 用户收藏纹理的关联实体。 */
 @Entity

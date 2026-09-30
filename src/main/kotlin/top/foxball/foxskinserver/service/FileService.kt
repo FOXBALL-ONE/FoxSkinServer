@@ -6,7 +6,7 @@ import org.springframework.web.multipart.MultipartFile
 import top.foxball.foxskinserver.entity.jdbc.StoredFile
 import java.nio.file.Path
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 
 /** 已完成工单领域授权后签发的短期 bearer 下载链接范围，不包含上传者标识。 */
 const val SUPPORT_TICKET_DOWNLOAD_SCOPE = "support-ticket"

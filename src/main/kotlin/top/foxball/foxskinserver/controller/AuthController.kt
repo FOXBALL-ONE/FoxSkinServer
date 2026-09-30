@@ -60,7 +60,8 @@ class AuthController(
         // 与登录一致：注册完成即签发令牌，省去一次重复输入；改密/封禁等既有吊销机制同样覆盖该会话。
         val tokens = authService.issue(AuthenticatedUser.from(user))
         response.addHeader("Set-Cookie", refreshCookie(tokens.refreshToken).toString())
-        return responseBuilder.created().data(TokenData(tokens.accessToken, tokens.refreshToken, tokens.expiresIn)).build()
+        return responseBuilder.created().data(TokenData(tokens.accessToken, tokens.refreshToken, tokens.expiresIn))
+            .build()
     }
     
     @PostMapping("/api/auth/refresh")
@@ -117,12 +118,9 @@ class AuthController(
     
     private fun refreshCookie(token: String, maxAgeOverride: Long? = null): ResponseCookie {
         val config = jwtProperties.refresh.cookie
-        val builder = ResponseCookie.from(config.name, token)
-            .httpOnly(config.httpOnly)
-            .secure(config.secure)
-            .path(config.path)
-            .sameSite(config.sameSite)
-            .maxAge(maxAgeOverride ?: jwtProperties.refresh.ttlSeconds)
+        val builder =
+            ResponseCookie.from(config.name, token).httpOnly(config.httpOnly).secure(config.secure).path(config.path)
+                .sameSite(config.sameSite).maxAge(maxAgeOverride ?: jwtProperties.refresh.ttlSeconds)
         if (config.domain.isNotBlank()) builder.domain(config.domain)
         return builder.build()
     }

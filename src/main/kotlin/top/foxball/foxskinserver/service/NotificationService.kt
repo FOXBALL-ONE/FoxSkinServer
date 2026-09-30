@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service
 import top.foxball.foxskinserver.entity.jdbc.Notification
 import top.foxball.foxskinserver.repository.NotificationRepository
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 
 @Service
 class NotificationService(private val repository: NotificationRepository) {

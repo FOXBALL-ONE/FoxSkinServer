@@ -4,12 +4,7 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import top.foxball.foxskinserver.config.JwtProperties
 import top.foxball.foxskinserver.entity.jdbc.User
-import top.foxball.foxskinserver.handler.AccessTokenExpiredException
-import top.foxball.foxskinserver.handler.ParamErrorException
-import top.foxball.foxskinserver.handler.RefreshTokenExpiredException
-import top.foxball.foxskinserver.handler.TokenInvalidException
-import top.foxball.foxskinserver.handler.UserNotFoundException
-import top.foxball.foxskinserver.handler.UsernameOrPasswordErrorException
+import top.foxball.foxskinserver.handler.*
 import top.foxball.foxskinserver.security.AccessTokenRevocationStore
 import top.foxball.foxskinserver.security.AuthenticatedUser
 import top.foxball.foxskinserver.security.JwtService

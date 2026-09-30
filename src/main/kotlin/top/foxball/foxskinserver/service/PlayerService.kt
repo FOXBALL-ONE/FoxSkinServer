@@ -6,7 +6,7 @@ import top.foxball.foxskinserver.handler.ParamErrorException
 import top.foxball.foxskinserver.handler.ResourceNotFoundException
 import top.foxball.foxskinserver.repository.PlayerRepository
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 
 /** 角色连同它当前绑定的皮肤/披风哈希，供前端直接渲染预览图。 */
 data class PlayerWithTextures(

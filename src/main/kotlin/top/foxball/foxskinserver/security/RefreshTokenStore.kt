@@ -21,8 +21,7 @@ class RefreshTokenStore(private val redis: StringRedisTemplate) {
     fun consume(jti: String, userId: Long): Boolean {
         val value = redis.opsForValue().getAndDelete(key(jti)) ?: return false
         redis.opsForSet().remove(userIndexKey(userId), jti)
-        if (value != userId.toString()) return false
-        return true
+        return value == userId.toString()
     }
     
     fun revoke(jti: String) {

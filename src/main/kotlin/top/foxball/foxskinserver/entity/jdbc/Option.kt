@@ -1,11 +1,6 @@
 package top.foxball.foxskinserver.entity.jdbc
 
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.Table
+import jakarta.persistence.*
 
 /** 皮肤站键值对配置实体。 */
 @Entity

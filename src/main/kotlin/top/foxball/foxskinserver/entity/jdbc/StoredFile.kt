@@ -1,13 +1,9 @@
 package top.foxball.foxskinserver.entity.jdbc
 
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.Id
-import jakarta.persistence.Index
-import jakarta.persistence.Table
+import jakarta.persistence.*
 import org.hibernate.annotations.CreationTimestamp
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 
 /** 配置的本地存储根目录中一份文件的元数据，不直接保存文件二进制内容。 */
 @Entity

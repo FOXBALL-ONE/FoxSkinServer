@@ -1,5 +1,6 @@
 package top.foxball.foxskinserver.config
 
+import jakarta.servlet.http.HttpServletResponse
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -10,9 +11,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
-import top.foxball.foxskinserver.security.JwtAuthenticationFilter
 import tools.jackson.databind.ObjectMapper
-import jakarta.servlet.http.HttpServletResponse
+import top.foxball.foxskinserver.security.JwtAuthenticationFilter
 import top.foxball.foxskinserver.shared.Response
 
 @Configuration
