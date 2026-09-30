@@ -46,6 +46,11 @@ const entries = ref<ClosetEntry[]>([])
 const players = ref<PlayerSummary[]>([])
 const feedback = ref<Feedback | null>(null)
 
+/** 展示台上的材质：点击卡片把它放上去，列表刷新后失效时自动落到第一件。 */
+const selectedId = ref<number | null>(null)
+const selected = computed(() => entries.value.find((entry) => entry.texture_id === selectedId.value) ?? null)
+const modelType = computed(() => (selected.value ? (selected.value.type === 'cape' ? 'cape' : selected.value.type === 'alex' ? 'alex' : 'steve') : 'steve'))
+
 /** 正在“应用到角色”的材质主键，非空时展示角色选择条。 */
 const applyingTexture = ref<number | null>(null)
 /** 正在重命名的材质主键。 */
@@ -70,6 +75,10 @@ function describe(error: unknown, fallback: string) {
   return value.data?.message || value.statusMessage || value.message || fallback
 }
 
+function selectEntry(entry: ClosetEntry) {
+  selectedId.value = entry.texture_id
+}
+
 async function loadCloset() {
   loading.value = true
   try {
@@ -80,6 +89,9 @@ async function loadCloset() {
       size: 60,
     })
     entries.value = data.list
+    if (!data.list.some((entry) => entry.texture_id === selectedId.value)) {
+      selectedId.value = data.list[0]?.texture_id ?? null
+    }
   } catch (error: unknown) {
     feedback.value = { tone: 'error', text: describe(error, t('closet.loadFailed')) }
   } finally {
@@ -238,6 +250,47 @@ onMounted(async () => {
       </button>
     </form>
 
+    <section class="viewer">
+      <div class="viewer__stage">
+        <SkinModel v-if="selected" :key="`${selected.texture_id}-${selected.hash}`" :hash="selected.hash" :type="modelType"/>
+        <div v-else class="viewer__empty">
+          <p>{{ t('closet.viewerEmpty') }}</p>
+          <button class="ghost-button" type="button" @click="uploadPanelOpen = true">{{ t('closet.upload') }}</button>
+        </div>
+      </div>
+      <div class="viewer__info">
+        <template v-if="selected">
+          <p class="eyebrow">{{ t('closet.viewerEyebrow') }}</p>
+          <div class="viewer__title">
+            <h2>{{ titleOf(selected) }}</h2>
+            <span :class="{'tag--cape': isCape(selected)}" class="tag">
+              {{ isCape(selected) ? t('closet.tagCape') : selected.type }}
+            </span>
+            <span class="tag">
+              {{ selected.public ? t('closet.visibilityPublic') : t('closet.visibilityPrivate') }}
+            </span>
+          </div>
+          <p v-if="selected.item_name" class="viewer__original">{{ t('closet.originalName', { name: selected.name }) }}</p>
+          <dl class="viewer__meta">
+            <div v-if="!isCape(selected)">
+              <dt>{{ t('closet.metaModel') }}</dt>
+              <dd>{{ selected.type === 'alex' ? t('closet.modelSlim') : t('closet.modelClassic') }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('closet.metaId') }}</dt>
+              <dd>#{{ selected.texture_id }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('closet.metaSize') }}</dt>
+              <dd>{{ (selected.size / 1024).toFixed(1) }} KB</dd>
+            </div>
+          </dl>
+          <p class="viewer__hint">{{ t('closet.viewerHint') }}</p>
+        </template>
+        <p v-else class="placeholder">{{ t('closet.empty') }}</p>
+      </div>
+    </section>
+
     <section class="wardrobe">
       <div>
         <div class="toolbar">
@@ -257,14 +310,17 @@ onMounted(async () => {
         <p v-else-if="!entries.length" class="placeholder">{{ t('closet.empty') }}</p>
 
         <div v-else class="closet-grid">
-          <article v-for="entry in entries" :key="entry.texture_id" class="closet-card">
-            <div class="closet-card__stage">
+          <article v-for="entry in entries" :key="entry.texture_id"
+                   :class="{'closet-card--selected': selectedId === entry.texture_id}" class="closet-card">
+            <button :aria-pressed="selectedId === entry.texture_id" class="closet-card__stage" type="button"
+                    @click="selectEntry(entry)">
               <SkinPreview :hash="entry.hash" :scale="isCape(entry) ? 6 : 3" :variant="isCape(entry) ? 'cape' : 'body'"/>
               <span :class="{ 'closet-card__tag--cape': isCape(entry) }" class="closet-card__tag">
                 {{ isCape(entry) ? t('closet.tagCape') : entry.type }}
               </span>
               <span v-if="entry.public" class="closet-card__public">{{ t('closet.tagPublic') }}</span>
-            </div>
+              <span v-if="selectedId === entry.texture_id" class="closet-card__selected">{{ t('closet.selectedTag') }}</span>
+            </button>
 
             <div class="closet-card__meta">
               <form v-if="renamingTexture === entry.texture_id" class="rename" @submit.prevent="commitRename(entry)">
@@ -326,6 +382,7 @@ onMounted(async () => {
             <button type="button" @click="addToCloset(item.id)">{{ t('closet.collect') }}</button>
           </li>
         </ul>
+        <NuxtLink class="library__all" to="/library">{{ t('closet.libraryAll') }} <span aria-hidden="true">↗</span></NuxtLink>
       </aside>
     </section>
   </AppShell>
@@ -335,8 +392,8 @@ onMounted(async () => {
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
 .page-head h1 { margin: 0; font: 600 clamp(37px, 4.3vw, 58px)/1.01 'Space Grotesk', sans-serif; }
 .page-head h1 em { color: var(--accent-strong); font-style: normal; }
-.primary-button { display: inline-flex; align-items: center; gap: 22px; min-height: 46px; padding: 0 16px 0 19px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700; transition: transform .2s, background .2s; }
-.primary-button:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-2px); }
+.primary-button { display: inline-flex; align-items: center; gap: 22px; min-height: 46px; padding: 0 16px 0 19px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700; transition: background .2s; }
+.primary-button:hover:not(:disabled) { background: var(--accent-hover); }
 .primary-button:disabled { cursor: wait; opacity: .65; }
 .primary-button span:last-child { font-size: 20px; font-weight: 400; }
 .notice { margin: 22px 0 -6px; padding: 9px 12px; font-size: 12px; }
@@ -350,6 +407,27 @@ onMounted(async () => {
 .switch { display: flex; align-items: center; gap: 8px; color: var(--text-body); font-size: 12px; }
 .switch input { accent-color: var(--accent-strong); }
 .upload-panel .primary-button { margin: 0; }
+
+/* —— 模型展示台 + 材质信息。 —— */
+.viewer { display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 19px; margin-top: 30px; align-items: stretch; }
+.viewer__stage { position: relative; min-height: 480px; border: 1px solid var(--border); background-color: var(--surface-panel); background-image: linear-gradient(var(--stage-grid) 1px, transparent 1px), linear-gradient(90deg, var(--stage-grid) 1px, transparent 1px); background-size: 16px 16px; }
+.viewer__stage :deep(.skin-model) { position: absolute; inset: 0; }
+.viewer__empty { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; border: 1px dashed var(--border-strong); margin: 10px; padding: 20px; text-align: center; }
+.viewer__empty p { margin: 0; max-width: 300px; color: var(--text-muted); font-size: 12px; line-height: 1.8; }
+.ghost-button { padding: 8px 14px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--text-body); font-size: 11px; transition: color .15s, border-color .15s; }
+.ghost-button:hover { color: var(--accent-strong); border-color: var(--accent-strong); }
+.viewer__info { display: flex; flex-direction: column; padding: 20px; border: 1px solid var(--border); background: var(--surface-panel); }
+.viewer__title { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.viewer__title h2 { margin: 0; overflow-wrap: anywhere; font: 600 22px 'Space Grotesk', sans-serif; }
+.tag { padding: 3px 6px; color: var(--accent-tag-ink); background: var(--accent-tag-bg); font: 9px 'DM Mono', monospace; }
+.tag--cape { color: var(--cape-ink); background: var(--cape-bg); }
+.viewer__original { margin: 9px 0 0; color: var(--text-faint); font-size: 11px; }
+.viewer__meta { margin: 16px 0 0; }
+.viewer__meta div { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 9px 0; border-top: 1px solid var(--border-soft); }
+.viewer__meta dt { color: var(--text-faint); font: 9px 'DM Mono', monospace; letter-spacing: .08em; }
+.viewer__meta dd { margin: 0; color: var(--text-body); font-size: 12px; }
+.viewer__hint { margin: auto 0 0; padding-top: 18px; color: var(--text-faint); font: 9px 'DM Mono', monospace; letter-spacing: .08em; }
+.viewer__info .placeholder { margin: 0; }
 
 .wardrobe { display: grid; grid-template-columns: minmax(0, 1fr) 296px; gap: 19px; margin-top: 34px; align-items: start; }
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -365,11 +443,15 @@ onMounted(async () => {
 .placeholder a { color: var(--accent-strong); }
 
 .closet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 13px; margin-top: 20px; }
-.closet-card { display: flex; flex-direction: column; border: 1px solid var(--border); background: var(--surface-panel); }
-.closet-card__stage { position: relative; display: grid; height: 168px; place-items: center; overflow: hidden; background: linear-gradient(135deg, var(--surface-stage-from), var(--surface-stage-to)); background-image: linear-gradient(var(--stage-grid) 1px, transparent 1px), linear-gradient(90deg, var(--stage-grid) 1px, transparent 1px); background-size: 16px 16px; }
+.closet-card { display: flex; flex-direction: column; border: 1px solid var(--border); background: var(--surface-panel); transition: border-color .15s; }
+.closet-card--selected { border-color: var(--accent-strong); }
+.closet-card__stage { position: relative; display: grid; width: 100%; height: 168px; place-items: center; overflow: hidden; padding: 0; border: 0; cursor: pointer; background-color: var(--surface-stage-from); background-image: linear-gradient(var(--stage-grid) 1px, transparent 1px), linear-gradient(90deg, var(--stage-grid) 1px, transparent 1px); background-size: 16px 16px; }
+.closet-card__stage:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: -2px; }
+.closet-card--selected .closet-card__stage { background-color: var(--surface-stage-to); }
 .closet-card__tag { position: absolute; top: 8px; left: 8px; padding: 3px 6px; color: var(--accent-tag-ink); background: var(--accent-tag-bg); font: 8px 'DM Mono', monospace; }
 .closet-card__tag--cape { color: var(--cape-ink); background: var(--cape-bg); }
 .closet-card__public { position: absolute; top: 8px; right: 8px; padding: 3px 6px; color: var(--text-muted); background: var(--surface-panel); font: 8px 'DM Mono', monospace; }
+.closet-card__selected { position: absolute; bottom: 8px; left: 8px; padding: 3px 6px; color: var(--accent-ink); background: var(--accent); font: 8px 'DM Mono', monospace; }
 .closet-card__meta { display: grid; gap: 3px; padding: 11px 10px; }
 .closet-card__meta b { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .closet-card__meta small { overflow: hidden; color: var(--text-faint); font: 8px 'DM Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }
@@ -397,8 +479,12 @@ onMounted(async () => {
 .library__list b { display: block; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .library__list small { color: var(--text-faint); font: 8px 'DM Mono', monospace; }
 .library__list button { padding: 5px 9px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 700; }
+.library__all { display: block; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); color: var(--text-muted); font: 10px 'DM Mono', monospace; text-decoration: none; transition: color .15s; }
+.library__all:hover { color: var(--accent-strong); }
 
 @media (max-width: 950px) {
+  .viewer { grid-template-columns: 1fr; }
+  .viewer__stage { min-height: 430px; }
   .wardrobe { grid-template-columns: 1fr; }
   .upload-panel { grid-template-columns: 1fr 1fr; }
 }
@@ -409,5 +495,6 @@ onMounted(async () => {
   .toolbar { flex-direction: column; align-items: stretch; }
   .search input { width: 100%; }
   .upload-panel { grid-template-columns: 1fr; }
+  .viewer__stage { min-height: 380px; }
 }
 </style>
