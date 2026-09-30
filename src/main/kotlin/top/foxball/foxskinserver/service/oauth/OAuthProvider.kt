@@ -29,16 +29,16 @@ data class OAuthIdentity(
 interface OAuthProvider {
     /** 路由与绑定关系里使用的组件 id，如 `qq`、`oidc`。 */
     val id: String
-
+    
     /** 前端按钮展示名。 */
     val displayName: String
-
+    
     /** 凭据是否齐备；未配置凭据的提供商不会出现在提供商列表与回调路由中。 */
     val enabled: Boolean
-
+    
     /** 构造提供商授权页地址，[state] 为 [OAuthStateStore] 签发的一次性凭据。 */
     fun authorizeUrl(redirectUri: String, state: String): String
-
+    
     /** 用授权码换取外部身份；协议细节（token 端点、OpenID、userinfo）由实现封闭。 */
     fun exchange(code: String, redirectUri: String): OAuthIdentity
 }

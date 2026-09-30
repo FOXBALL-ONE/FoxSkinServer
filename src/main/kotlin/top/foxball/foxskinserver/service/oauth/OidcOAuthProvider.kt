@@ -7,8 +7,8 @@ import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 import org.springframework.web.util.UriComponentsBuilder
-import top.foxball.foxskinserver.config.OAuthProperties
 import tools.jackson.databind.ObjectMapper
+import top.foxball.foxskinserver.config.OAuthProperties
 
 /**
  * 通用 OIDC 提供商：任何暴露 `/.well-known/openid-configuration` 发现文档的身份提供商均可接入，
@@ -25,16 +25,16 @@ class OidcOAuthProvider(
     private val objectMapper: ObjectMapper,
 ) : OAuthProvider {
     private val restClient = restClientBuilder.build()
-
+    
     @Volatile
     private var discovered: DiscoveredEndpoints? = null
-
+    
     override val id: String = "oidc"
     override val displayName: String
         get() = oauthProperties.oidc.displayName
     override val enabled: Boolean
         get() = oauthProperties.oidc.issuer.isNotBlank() && oauthProperties.oidc.clientId.isNotBlank()
-
+    
     override fun authorizeUrl(redirectUri: String, state: String): String {
         val endpoints = discover()
         return UriComponentsBuilder
@@ -46,7 +46,7 @@ class OidcOAuthProvider(
             .queryParam("scope", oauthProperties.oidc.scope)
             .build().encode().toUriString()
     }
-
+    
     override fun exchange(code: String, redirectUri: String): OAuthIdentity {
         val endpoints = discover()
         val accessToken = fetchAccessToken(endpoints.tokenEndpoint, code, redirectUri)
@@ -61,22 +61,24 @@ class OidcOAuthProvider(
             email = claims["email"]?.takeIf { it.isNotBlank() },
         )
     }
-
+    
     /** 发现文档在应用生命周期内基本不变，缓存后失败时重新拉取，兼顾性能与提供商配置变更。 */
     private fun discover(): DiscoveredEndpoints {
         discovered?.let { return it }
         val issuer = oauthProperties.oidc.issuer.trimEnd('/')
         return fetchDiscovery("$issuer/.well-known/openid-configuration").also { discovered = it }
     }
-
+    
     private fun fetchDiscovery(url: String): DiscoveredEndpoints {
         val fields = parseJsonFields(fetchText(url)) { throw OAuthProviderException("OIDC 发现文档不是合法 JSON") }
-        val authorization = fields["authorization_endpoint"] ?: throw OAuthProviderException("OIDC 发现文档缺少 authorization_endpoint")
+        val authorization =
+            fields["authorization_endpoint"] ?: throw OAuthProviderException("OIDC 发现文档缺少 authorization_endpoint")
         val token = fields["token_endpoint"] ?: throw OAuthProviderException("OIDC 发现文档缺少 token_endpoint")
-        val userinfo = fields["userinfo_endpoint"] ?: throw OAuthProviderException("OIDC 发现文档缺少 userinfo_endpoint")
+        val userinfo =
+            fields["userinfo_endpoint"] ?: throw OAuthProviderException("OIDC 发现文档缺少 userinfo_endpoint")
         return DiscoveredEndpoints(authorization, token, userinfo)
     }
-
+    
     private fun fetchAccessToken(tokenEndpoint: String, code: String, redirectUri: String): String {
         val form = LinkedMultiValueMap<String, String>().apply {
             add("grant_type", "authorization_code")
@@ -98,7 +100,7 @@ class OidcOAuthProvider(
         return fields["access_token"]?.takeIf { it.isNotBlank() }
             ?: throw OAuthProviderException("OIDC 提供商未返回访问令牌")
     }
-
+    
     private fun fetchClaims(userinfoEndpoint: String, accessToken: String): Map<String, String> {
         val body = try {
             restClient.get().uri(userinfoEndpoint)
@@ -110,7 +112,7 @@ class OidcOAuthProvider(
         }
         return parseJsonFields(body) { throw OAuthProviderException("OIDC userinfo 响应不是合法 JSON") }
     }
-
+    
     /** 发现文档等 GET 端点统一走这里；各端点对非法凭据可能返回 200 + 错误文本，由调用方按 JSON 解析后校验。 */
     private fun fetchText(url: String): String = try {
         restClient.get().uri(url)
@@ -119,7 +121,7 @@ class OidcOAuthProvider(
     } catch (_: RestClientException) {
         throw OAuthProviderException("OIDC 提供商服务暂不可用")
     }
-
+    
     private fun parseJsonFields(json: String, onInvalid: () -> OAuthProviderException): Map<String, String> = try {
         @Suppress("UNCHECKED_CAST")
         val fields = objectMapper.readValue(json, Map::class.java) as Map<String, Any>
@@ -127,7 +129,7 @@ class OidcOAuthProvider(
     } catch (_: Exception) {
         throw onInvalid()
     }
-
+    
     private data class DiscoveredEndpoints(
         val authorizationEndpoint: String,
         val tokenEndpoint: String,

@@ -11,7 +11,7 @@ import top.foxball.foxskinserver.handler.UserAlreadyExistsException
 import top.foxball.foxskinserver.repository.UserConnectionRepository
 import top.foxball.foxskinserver.repository.UserRepository
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 
 /**
  * 第三方账号与皮肤站用户的关联服务，QQ/OIDC 等提供商共用的扩展组件核心。
@@ -26,7 +26,7 @@ class OAuthConnectionService(
     private val passwordEncoder: PasswordEncoder,
 ) {
     fun listConnections(userId: Long): List<UserConnection> = connectionRepository.findAllByUserId(userId)
-
+    
     /**
      * 登录流程：返回外部身份对应的皮肤站用户，不存在时创建。
      * 若提供商身份此前已绑定其他用户，登录即找回该账号，不视为冲突。
@@ -47,7 +47,7 @@ class OAuthConnectionService(
                 ?: throw ParamErrorException("绑定记录指向的用户不存在，请联系管理员")
         }
     }
-
+    
     /** 绑定流程：把外部身份挂到 [userId] 名下；该外部身份已属于别人时报冲突。 */
     @Transactional
     fun bind(userId: Long, provider: String, identity: OAuthIdentity): UserConnection {
@@ -69,7 +69,7 @@ class OAuthConnectionService(
         )
         return connectionRepository.save(connection)
     }
-
+    
     /**
      * 解绑流程：占位邮箱用户（无法用邮箱+密码登录找回）解绑最后一个连接后会被锁死在账号外，必须拒绝。
      * 正常注册用户总是保留密码这条退路，允许随时解绑。
@@ -80,13 +80,13 @@ class OAuthConnectionService(
             ?: throw ParamErrorException("当前用户未绑定该提供商的账号")
         val user = userRepository.findUserById(userId) ?: throw ParamErrorException("用户不存在")
         val isSoleCredential = user.email.endsWith(NOREPLY_EMAIL_SUFFIX) &&
-            connectionRepository.findAllByUserId(userId).size == 1
+                connectionRepository.findAllByUserId(userId).size == 1
         if (isSoleCredential) {
             throw ParamErrorException("该账号仅剩这一种登录方式，请先绑定其他账号或完善邮箱后再解绑")
         }
         connectionRepository.delete(connection)
     }
-
+    
     private fun createUser(provider: String, identity: OAuthIdentity): User {
         val nickname = identity.nickname.take(NICKNAME_MAX_LENGTH)
         val username = uniqueUsername(usernameSeed(provider, identity))
@@ -115,14 +115,14 @@ class OAuthConnectionService(
         )
         return saved
     }
-
+    
     /** 用户名候选顺序：昵称 → openId 摘要，清洗后保证落在站点用户名规则内。 */
     private fun usernameSeed(provider: String, identity: OAuthIdentity): String {
         val candidate = identity.nickname.ifBlank { "${provider}_${identity.openId.take(12)}" }
         val cleaned = candidate.filter { it.isLetterOrDigit() || it == '_' }.take(USERNAME_MAX_LENGTH)
         return cleaned.ifBlank { "user${UUID.randomUUID().toString().take(8)}" }
     }
-
+    
     private fun uniqueUsername(seed: String): String {
         if (userRepository.findByUsername(seed) == null) return seed
         repeat(UNIQUE_RETRY) {
@@ -131,17 +131,17 @@ class OAuthConnectionService(
         }
         throw UserAlreadyExistsException("无法生成可用用户名，请稍后重试")
     }
-
+    
     private fun placeholderEmail(provider: String, openId: String): String =
         "${provider}_${openId.take(48)}$NOREPLY_EMAIL_SUFFIX".lowercase()
-
+    
     companion object {
         /** OAuth 自动注册用户使用占位邮箱；解绑保护与后续补全邮箱流程都以该后缀识别。 */
         const val NOREPLY_EMAIL_SUFFIX = "@users.noreply.foxskin.local"
-
+        
         /** 站点用户名规则：字母/数字/下划线，最长 50。 */
         val USERNAME_PATTERN = Regex("^[A-Za-z0-9_]{2,50}$")
-
+        
         private val EMAIL_PATTERN = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
         private const val USERNAME_MAX_LENGTH = 50
         private const val NICKNAME_MAX_LENGTH = 50

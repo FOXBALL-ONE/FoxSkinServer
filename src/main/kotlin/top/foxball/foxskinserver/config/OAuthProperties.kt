@@ -35,7 +35,7 @@ data class OAuthProperties(
         /** 前端展示名。 */
         var displayName: String = "QQ",
     )
-
+    
     /** 任意符合 OIDC Discovery 规范的身份提供商（Keycloak、Authentik、Logto、Authelia 等）。 */
     data class Oidc(
         /** 提供商的 Issuer 地址，非空时启用 OIDC 登录；Discovery 文档固定读 `{issuer}/.well-known/openid-configuration`。 */
