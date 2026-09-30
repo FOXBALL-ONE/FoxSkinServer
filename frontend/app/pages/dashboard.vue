@@ -1405,3 +1405,122 @@ button {
   }
 }
 </style>
+
+<style scoped>
+:global(html) { background: #080c0a; }
+:global(body) { margin: 0; background: #080c0a; color: #e8ece5; font-family: 'DM Sans', sans-serif; }
+
+.dashboard-page {
+  position: relative;
+  isolation: isolate;
+  grid-template-columns: 228px minmax(0, 1fr);
+  background: #080c0a;
+  color: #e8ece5;
+}
+.dashboard-page::before {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(8, 12, 10, .98) 0%, rgba(8, 12, 10, .93) 27%, rgba(8, 12, 10, .82) 100%), url('/hero-gaming.jpg') 64% center / cover no-repeat;
+  filter: saturate(.42) brightness(.66);
+}
+.dashboard-page .sidebar {
+  width: 228px;
+  padding: 25px 16px 20px;
+  border-right: 1px solid #283129;
+  background: rgba(8, 12, 10, .96);
+  color: #e8ece5;
+}
+.dashboard-page .brand { color: #e8ece5; font-family: 'Space Grotesk', sans-serif; letter-spacing: .06em; }
+.dashboard-page .brand > span:last-child > span { color: #748077; }
+.dashboard-page .brand__mark { width: 28px; height: 28px; color: #080c0a; background: #a9d36a; transform: none; }
+.dashboard-page .sidebar__nav { margin-top: 68px; gap: 3px; }
+.dashboard-page .sidebar__nav a, .dashboard-page .settings-link { min-height: 40px; color: #89968b; border-left: 2px solid transparent; }
+.dashboard-page .sidebar__nav a:hover, .dashboard-page .settings-link:hover { color: #e8ece5; background: rgba(40, 49, 41, .45); }
+.dashboard-page .sidebar__nav a.active, .dashboard-page .settings-link.active { border-left-color: #a9d36a; color: #e8ece5; background: #141a16; }
+.dashboard-page .nav-mark { width: 9px; height: 9px; border-color: currentColor; }
+.dashboard-page .sidebar__nav a.active .nav-mark, .dashboard-page .settings-link.active .nav-mark { border-color: #a9d36a; background: #a9d36a; }
+.dashboard-page .server-pill { color: #748077; }
+.dashboard-page .server-pill span, .dashboard-page .server-status i { border-radius: 0; background: #769d4c; box-shadow: 0 0 0 4px rgba(118, 157, 76, .14); }
+.dashboard-page .workspace { background: transparent; }
+.dashboard-page .topbar { height: 70px; border-bottom: 1px solid #283129; background: rgba(8, 12, 10, .76); backdrop-filter: blur(10px); }
+.dashboard-page .breadcrumb { color: #748077; }
+.dashboard-page .breadcrumb b { color: #3f4b42; }
+.dashboard-page .breadcrumb strong { color: #e8ece5; }
+.dashboard-page .server-status { color: #89968b; }
+.dashboard-page .account { color: #e8ece5; }
+.dashboard-page .account:hover { background: #141a16; }
+.dashboard-page .account__avatar { background: #5f7b4a; color: #e8ece5; }
+.dashboard-page .account small { color: #748077; }
+.dashboard-page .account em { color: #748077; }
+.dashboard-page .content { width: min(1180px, calc(100% - 64px)); padding: 56px 0 76px; }
+.dashboard-page .eyebrow { color: #a9d36a; font: 10px 'DM Mono', monospace; letter-spacing: .1em; }
+.dashboard-page .welcome-row h1 { color: #e8ece5; font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif; letter-spacing: -.02em; }
+.dashboard-page .welcome-row h1 em { color: #a9d36a; }
+.dashboard-page .primary-button { min-height: 44px; border: 1px solid #a9d36a; background: #a9d36a; color: #10180d; border-radius: 0; }
+.dashboard-page .primary-button:hover { background: #c2e983; }
+.dashboard-page .upload-notice { color: #a9d36a; background: rgba(118, 157, 76, .18); border-left: 2px solid #769d4c; }
+.dashboard-page .character-panel, .dashboard-page .activity-panel, .dashboard-page .profile-panel { border: 1px solid #283129; background: rgba(13, 18, 15, .95); }
+.dashboard-page .connection-panel { border: 1px solid #455c40; background: #141f17; }
+.dashboard-page .panel-line { color: #89968b; border-bottom-color: #283129; }
+.dashboard-page .panel-line time { color: #748077; }
+.dashboard-page .character-scene { background: #18231c; }
+.dashboard-page .scene-grid { background-image: linear-gradient(rgba(169, 211, 106, .08) 1px, transparent 1px), linear-gradient(90deg, rgba(169, 211, 106, .08) 1px, transparent 1px); }
+.dashboard-page .scene-light { background: linear-gradient(105deg, rgba(118, 157, 76, .18), transparent 52%), linear-gradient(0deg, rgba(8, 12, 10, .6), transparent 55%); }
+.dashboard-page .scene-caption b { color: #e8ece5; }
+.dashboard-page .scene-caption span, .dashboard-page .coordinate { color: #aab4a8; }
+.dashboard-page .character-panel__footer { color: #89968b; border-top: 1px solid #283129; }
+.dashboard-page .character-panel__footer i { border-radius: 0; background: #769d4c; }
+.dashboard-page .character-panel__footer button, .dashboard-page .profile-panel > button { color: #a9d36a; }
+.dashboard-page .connection-panel__top > span { color: #a9d36a; background: rgba(118, 157, 76, .16); }
+.dashboard-page .connection-panel .eyebrow { color: #a9d36a; }
+.dashboard-page .connection-panel h2 { color: #e8ece5; font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif; }
+.dashboard-page .connection-panel > p { color: #aab4a8; }
+.dashboard-page .address-box { border-color: #40533e; background: rgba(8, 12, 10, .38); }
+.dashboard-page .address-box span { color: #748077; }
+.dashboard-page .address-box code { color: #e8ece5; }
+.dashboard-page .copy-button { border-color: #769d4c; background: #769d4c; color: #10180d; border-radius: 0; }
+.dashboard-page .copy-button:hover { background: #a9d36a; }
+.dashboard-page .connection-panel__bottom { color: #748077; border-top-color: #40533e; }
+.dashboard-page .section-heading { border-bottom-color: #283129; }
+.dashboard-page .section-heading h2, .dashboard-page .activity-panel h2, .dashboard-page .profile-panel h2 { color: #e8ece5; font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif; }
+.dashboard-page .section-heading > button, .dashboard-page .activity-panel .section-heading > button { border-color: #3f4b42; color: #aab4a8; background: transparent; border-radius: 0; }
+.dashboard-page .section-heading > button:hover { border-color: #a9d36a; color: #a9d36a; }
+.dashboard-page .skin-card { border-color: #283129; background: rgba(13, 18, 15, .95); color: #e8ece5; border-radius: 0; }
+.dashboard-page .skin-card:hover, .dashboard-page .skin-card.active { border-color: #a9d36a; }
+.dashboard-page .skin-card__visual { background: #18231c; border-bottom-color: #283129; }
+.dashboard-page .skin-card__visual > span { color: #10180d; background: #a9d36a; }
+.dashboard-page .skin-card__meta b { color: #e8ece5; }
+.dashboard-page .skin-card__meta small { color: #748077; }
+.dashboard-page .skin-card--add { border-style: dashed; color: #aab4a8; }
+.dashboard-page .skin-card--add > span { color: #a9d36a; }
+.dashboard-page .skin-card--add small { color: #748077; }
+.dashboard-page .activity-panel ol { border-top-color: #283129; }
+.dashboard-page .activity-panel li { border-bottom-color: #283129; }
+.dashboard-page .activity-panel li b { color: #e8ece5; }
+.dashboard-page .activity-panel li time { color: #748077; }
+.dashboard-page .activity-dot { border-radius: 0; }
+.dashboard-page .profile-panel__identity > span { border: 1px solid #769d4c; background: #263b29; color: #a9d36a; }
+.dashboard-page .profile-panel__identity h2 { color: #e8ece5; }
+.dashboard-page .profile-panel__identity p, .dashboard-page .profile-panel dt { color: #748077; }
+.dashboard-page .profile-panel dd { color: #aab4a8; }
+
+@media (max-width: 950px) {
+  .dashboard-page { grid-template-columns: 72px minmax(0, 1fr); }
+  .dashboard-page .sidebar { width: 72px; }
+  .dashboard-page .content { width: calc(100% - 48px); }
+}
+@media (max-width: 620px) {
+  .dashboard-page { display: block; }
+  .dashboard-page .sidebar { width: 100%; height: 60px; border-right: 0; border-bottom: 1px solid #283129; background: rgba(8, 12, 10, .98); }
+  .dashboard-page .topbar { background: rgba(8, 12, 10, .9); }
+  .dashboard-page .content { width: calc(100% - 40px); padding-top: 38px; }
+  .dashboard-page .welcome-row { align-items: flex-start; flex-direction: column; }
+  .dashboard-page .hero-grid, .dashboard-page .lower-grid { grid-template-columns: 1fr; }
+  .dashboard-page .character-scene { height: 300px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-page *, .dashboard-page *::before, .dashboard-page *::after { transition-duration: .01ms !important; }
+}
+</style>

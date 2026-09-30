@@ -2,10 +2,10 @@ package top.foxball.foxskinserver.security
 
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Repository
-import top.foxball.foxskinserver.config.OAuthProperties
 import tools.jackson.databind.ObjectMapper
+import top.foxball.foxskinserver.config.OAuthProperties
 import java.time.Duration
-import java.util.UUID
+import java.util.*
 
 /**
  * OAuth 授权流程的 state 凭据存储。
@@ -21,7 +21,7 @@ class OAuthStateStore(
 ) {
     /** 回调完成后的动作：登录或绑定当前已登录用户。 */
     enum class Mode { LOGIN, BIND }
-
+    
     data class StatePayload(
         val provider: String,
         val mode: Mode,
@@ -29,16 +29,22 @@ class OAuthStateStore(
         val redirect: String = "",
         /** BIND 模式下待绑定的皮肤站用户主键。 */
         val userId: Long = 0,
+        /** 正版绑定时选择的 FoxSkin 角色主键。 */
+        val playerId: Long = 0,
     )
-
+    
     /** 生成并登记一条 state，返回浏览器要携带的原样字符串。 */
     fun issue(payload: StatePayload): String {
         val state = UUID.randomUUID().toString().replace("-", "")
         redis.opsForValue()
-            .set(key(state), objectMapper.writeValueAsString(payload), Duration.ofSeconds(oauthProperties.stateTtlSeconds))
+            .set(
+                key(state),
+                objectMapper.writeValueAsString(payload),
+                Duration.ofSeconds(oauthProperties.stateTtlSeconds)
+            )
         return state
     }
-
+    
     /** 消费一条 state；不存在、过期或 provider 不匹配都返回 null。 */
     fun consume(state: String, provider: String): StatePayload? {
         val raw = redis.opsForValue().getAndDelete(key(state)) ?: return null
@@ -50,6 +56,6 @@ class OAuthStateStore(
         if (payload.provider != provider) return null
         return payload
     }
-
+    
     private fun key(state: String) = "oauth:state:$state"
 }
