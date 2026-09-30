@@ -108,8 +108,9 @@ export const useAuthStore = defineStore("auth", () => {
      * 发起第三方登录/绑定：后端返回授权页地址后整页跳转过去。
      * 跳走前把当前路径带上，回调完成后能回到原位。
      */
-    async function startOAuth(providerId: string, mode: "login" | "bind", redirectPath?: string) {
+    async function startOAuth(providerId: string, mode: "login" | "bind", redirectPath?: string, playerId?: number) {
         const params: Record<string, string> = mode === "bind" ? {mode: "bind"} : {redirect: redirectPath ?? "/dashboard"};
+        if (mode === "bind" && playerId != null) params.player_id = String(playerId);
         const result = await http.get<{ authorize_url: string }>(`/auth/oauth/${providerId}/redirect`, params);
         if (import.meta.client && result.authorize_url) {
             window.location.href = result.authorize_url;

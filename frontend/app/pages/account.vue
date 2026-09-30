@@ -128,7 +128,8 @@ async function changeLocale(value: string) {
 
 const bindNotice = ref<Feedback | null>(null)
 const bindingBusy = ref(false)
-const bindingsEnabled = computed(() => auth.oauthProviders.length > 0)
+const accountProviders = computed(() => auth.oauthProviders.filter((item) => item.id !== 'microsoft'))
+const bindingsEnabled = computed(() => accountProviders.value.length > 0)
 
 function connectionOf(providerId: string) {
   return auth.connections.find(item => item.provider === providerId) ?? null
@@ -313,7 +314,7 @@ onMounted(async () => {
         <p v-if="!bindingsEnabled" class="hint">{{ t('account.bindingsDisabled') }}</p>
         <template v-else>
           <ul class="bindings">
-            <li v-for="item in auth.oauthProviders" :key="item.id" class="bindings__item">
+            <li v-for="item in accountProviders" :key="item.id" class="bindings__item">
               <div class="bindings__info">
                 <b><span class="bindings__mark" aria-hidden="true">{{ item.display_name.slice(0, 1) }}</span>{{ item.display_name }}</b>
                 <small v-if="connectionOf(item.id)">

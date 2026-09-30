@@ -17,6 +17,14 @@ type PlayerEntry = {
   last_modified: string
 }
 
+type MojangBinding = {
+  id: number
+  player_id: number
+  mojang_uuid: string
+  mojang_name: string
+  verified_at: string
+  created_at: string
+}
 type ClosetEntry = {
   texture_id: number
   item_name: string | null
@@ -40,6 +48,8 @@ const renameDraft = ref('')
 const picking = ref<{ playerId: number; kind: 'skin' | 'cape' } | null>(null)
 const pickerOptions = ref<ClosetEntry[]>([])
 const pickerLoading = ref(false)
+const mojangBindings = ref<MojangBinding[]>([])
+const microsoftEnabled = computed(() => auth.oauthProviders.some((item) => item.id === 'microsoft'))
 
 const activePlayer = computed(() => players.value.find((item) => item.id === picking.value?.playerId) ?? null)
 const pickerTitle = computed(() => (picking.value?.kind === 'cape' ? t('characters.pickerCape') : t('characters.pickerSkin')))
@@ -145,6 +155,30 @@ async function bindTexture(playerId: number, kind: 'skin' | 'cape', textureId: n
   }
 }
 
+async function loadMojangBindings() {
+  try {
+    mojangBindings.value = await http.get<MojangBinding[]>('/account/mojang-bindings')
+  } catch {
+    mojangBindings.value = []
+  }
+}
+
+function mojangBindingOf(playerId: number) {
+  return mojangBindings.value.find((item) => item.player_id === playerId) ?? null
+}
+
+async function unbindMojang(playerId: number) {
+  const binding = mojangBindingOf(playerId)
+  if (!binding) return
+  feedback.value = null
+  try {
+    await http.delete(`/account/mojang-bindings/${binding.id}`)
+    feedback.value = { tone: 'ok', text: t('characters.unbindMicrosoftOk') }
+    await loadMojangBindings()
+  } catch (error: unknown) {
+    feedback.value = { tone: 'error', text: describe(error, t('characters.unbindMicrosoftFailed')) }
+  }
+}
 async function copyUuid(uuid: string) {
   feedback.value = null
   try {
@@ -155,13 +189,22 @@ async function copyUuid(uuid: string) {
   }
 }
 
+async function bindMicrosoft(playerId: number) {
+  feedback.value = null
+  try {
+    await auth.startOAuth('microsoft', 'bind', undefined, playerId)
+  } catch (error: unknown) {
+    feedback.value = { tone: 'error', text: describe(error, t('characters.bindMicrosoftFailed')) }
+  }
+}
+
 onMounted(async () => {
   await auth.hydrate()
   if (!auth.isAuthenticated || !auth.user) {
     await router.replace({ path: '/login', query: { redirect: '/characters' } })
     return
   }
-  await loadPlayers()
+  await Promise.all([loadPlayers(), auth.loadOauthProviders(), loadMojangBindings()])
 })
 </script>
 
@@ -220,6 +263,8 @@ onMounted(async () => {
           <button type="button" @click="openPicker(player, 'skin')">{{ t('characters.changeSkin') }}</button>
           <button type="button" @click="openPicker(player, 'cape')">{{ t('characters.changeCape') }}</button>
           <button type="button" @click="startRename(player)">{{ t('characters.rename') }}</button>
+          <button v-if="microsoftEnabled && !mojangBindingOf(player.id)" type="button" @click="bindMicrosoft(player.id)">{{ t('characters.bindMicrosoft') }}</button>
+          <button v-if="mojangBindingOf(player.id)" class="danger" type="button" @click="unbindMojang(player.id)">{{ t('characters.unbindMicrosoft') }}</button>
           <button class="danger" type="button" @click="deletePlayer(player)">{{ t('common.delete') }}</button>
         </footer>
       </article>
