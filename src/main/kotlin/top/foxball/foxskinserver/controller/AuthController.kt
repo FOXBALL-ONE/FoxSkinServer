@@ -37,7 +37,36 @@ class AuthController(
         )
         
         val identifier = username?.takeIf { it.isNotBlank() } ?: email ?: ""
-        val tokens = authService.login(identifier, password)
+        return when (val result = authService.login(identifier, password)) {
+            is top.foxball.foxskinserver.service.LoginResult.Authenticated -> {
+                val tokens = result.tokens
+                response.addHeader("Set-Cookie", refreshCookie(tokens.refreshToken).toString())
+                responseBuilder.ok().data(TokenData(tokens.accessToken, tokens.refreshToken, tokens.expiresIn)).build()
+            }
+            is top.foxball.foxskinserver.service.LoginResult.TotpRequired -> {
+                data class TotpChallengeData(
+                    @param:JsonProperty("requires_totp") val requiresTotp: Boolean,
+                    @param:JsonProperty("challenge_token") val challengeToken: String,
+                    @param:JsonProperty("expires_in") val expiresIn: Long,
+                )
+                responseBuilder.ok().data(TotpChallengeData(true, result.challengeToken, result.expiresIn)).build()
+            }
+        }
+    }
+
+    @PostMapping("/api/auth/login/totp")
+    fun loginTotp(
+        request: HttpServletRequest,
+        @RequestParam("challenge_token") challengeToken: String,
+        @RequestParam("code") code: String,
+        response: HttpServletResponse,
+    ): ResponseEntity<Response> {
+        data class TokenData(
+            @param:JsonProperty("access_token") val accessToken: String,
+            @param:JsonProperty("refresh_token") val refreshToken: String,
+            @param:JsonProperty("expires_in") val expiresIn: Long,
+        )
+        val tokens = authService.loginTotp(challengeToken, code, request.remoteAddr ?: "unknown")
         response.addHeader("Set-Cookie", refreshCookie(tokens.refreshToken).toString())
         return responseBuilder.ok().data(TokenData(tokens.accessToken, tokens.refreshToken, tokens.expiresIn)).build()
     }

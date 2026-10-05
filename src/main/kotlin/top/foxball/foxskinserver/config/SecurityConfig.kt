@@ -32,7 +32,7 @@ class SecurityConfig(
         .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
         .authorizeHttpRequests {
             it.requestMatchers(
-                "/api/auth/login", "/api/auth/register", "/api/auth/refresh", "/api/auth/logout",
+                "/api/auth/login", "/api/auth/login/totp", "/api/auth/register", "/api/auth/refresh", "/api/auth/logout",
                 // 第三方登录扩展组件：提供商列表与授权跳转/回调在登录前就要可达，绑定接口不在其列。
                 "/api/auth/oauth/providers", "/api/auth/oauth/*/redirect", "/api/auth/oauth/*/callback",
                 yggdrasilProperties.apiPath, "${yggdrasilProperties.apiPath}/**", "/textures/**", "/avatar/**",

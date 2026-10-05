@@ -11,6 +11,10 @@ import top.foxball.foxskinserver.security.JwtService
 import top.foxball.foxskinserver.security.RefreshTokenStore
 
 data class IssuedTokens(val accessToken: String, val refreshToken: String, val expiresIn: Long)
+sealed interface LoginResult {
+    data class Authenticated(val tokens: IssuedTokens) : LoginResult
+    data class TotpRequired(val challengeToken: String, val expiresIn: Long) : LoginResult
+}
 
 @Service
 class AuthService(
@@ -20,14 +24,27 @@ class AuthService(
     private val refreshTokenStore: RefreshTokenStore,
     private val accessTokenRevocationStore: AccessTokenRevocationStore,
     private val jwtProperties: JwtProperties,
+    private val totpService: TotpService,
 ) {
-    fun login(usernameOrEmail: String, password: String): IssuedTokens {
+    fun login(usernameOrEmail: String, password: String): LoginResult {
         val identifier = usernameOrEmail.trim()
         val user = userRepository.findByEmail(identifier.lowercase())
             ?: userRepository.findByUsername(identifier)
             ?: throw UsernameOrPasswordErrorException()
         if (user.permission == User.BANNED) throw UsernameOrPasswordErrorException()
         if (!passwordEncoder.matches(password, user.password)) throw UsernameOrPasswordErrorException()
+        val userId = requireNotNull(user.id)
+        if (totpService.status(userId).enabled) {
+            val challenge = totpService.issueChallenge(userId)
+            return LoginResult.TotpRequired(challenge.challengeToken, challenge.expiresIn)
+        }
+        return LoginResult.Authenticated(issue(AuthenticatedUser.from(user)))
+    }
+
+    fun loginTotp(challengeToken: String, code: String, clientAddress: String): IssuedTokens {
+        val userId = totpService.verifyLoginChallenge(challengeToken, code, clientAddress)
+        val user = userRepository.findUserById(userId) ?: throw UsernameOrPasswordErrorException()
+        if (user.permission == User.BANNED) throw UsernameOrPasswordErrorException()
         return issue(AuthenticatedUser.from(user))
     }
     
@@ -83,6 +100,7 @@ class AuthService(
             System.currentTimeMillis() / 1000,
             jwtProperties.refresh.ttlSeconds,
         )
+        totpService.invalidateChallenges(userId)
     }
     
     /** 签发一对新令牌；站内密码登录、OAuth 首次登录与注册完成后的自动登录共用。 */

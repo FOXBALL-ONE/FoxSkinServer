@@ -68,6 +68,12 @@ shopmall:
           secure: "${JWT_REFRESH_COOKIE_SECURE:true}"
           http-only: "${JWT_REFRESH_COOKIE_HTTP_ONLY:true}"
           same-site: "${JWT_REFRESH_COOKIE_SAME_SITE:Lax}"
+    totp:
+      encryption-key: "${TOTP_ENCRYPTION_KEY:}"
+      backup-pepper: "${TOTP_BACKUP_PEPPER:}"
+      challenge-ttl-seconds: "${TOTP_CHALLENGE_TTL_SECONDS:300}"
+      max-challenge-attempts: "${TOTP_MAX_CHALLENGE_ATTEMPTS:5}"
+      issuer: "${TOTP_ISSUER:FoxSkin}"
   yggdrasil:
     api-path: "${YGGDRASIL_API_PATH:/api/yggdrasil}"
     server-name: "${YGGDRASIL_SERVER_NAME:FoxSkinServer}"

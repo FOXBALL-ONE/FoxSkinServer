@@ -7,8 +7,10 @@ const auth = useAuthStore();
 
 const username = ref("");
 const password = ref("");
+const totpCode = ref("");
 const showPassword = ref(false);
 const localError = ref("");
+const requiresTotp = computed(() => Boolean(auth.totpChallenge));
 
 const loginProviders = computed(() => auth.oauthProviders.filter((item) => item.id !== 'microsoft'))
 const redirectPath = computed(() => {
@@ -36,9 +38,31 @@ async function submit() {
     const success = await auth.login(username.value.trim(), password.value);
     if (success) {
         await router.replace(redirectPath.value);
+    } else if (auth.totpChallenge) {
+        localError.value = "";
     } else {
         localError.value = auth.lastError || t("login.failed");
     }
+}
+
+async function submitTotp() {
+    localError.value = "";
+    if (!totpCode.value.trim()) {
+        localError.value = t("login.totpEmpty");
+        return;
+    }
+    const success = await auth.verifyTotp(totpCode.value.trim());
+    if (success) {
+        await router.replace(redirectPath.value);
+    } else {
+        localError.value = auth.lastError || t("login.totpFailed");
+    }
+}
+
+function cancelTotp() {
+    auth.cancelTotp();
+    totpCode.value = "";
+    localError.value = "";
 }
 
 /** 整页跳转到提供商授权页；回调由 /oauth/callback 接手并回到 redirectPath。 */
@@ -82,7 +106,7 @@ async function oauth(providerId: string) {
 
         <p v-if="passwordChangedNotice" class="form-notice" role="status">{{ t('login.passwordChanged') }}</p>
 
-        <form class="login-form" @submit.prevent="submit">
+        <form v-if="!requiresTotp" class="login-form" @submit.prevent="submit">
           <label for="username">{{ t('login.usernameLabel') }}</label>
           <input id="username" v-model="username" autocomplete="username" :placeholder="t('login.usernamePlaceholder')"
                  required type="text">
@@ -100,6 +124,19 @@ async function oauth(providerId: string) {
           <button class="submit-button" type="submit" :disabled="auth.loading">
             <span>{{ auth.loading ? t('login.submitting') : t('login.submit') }}</span><span aria-hidden="true">↗</span>
           </button>
+        </form>
+
+        <form v-else class="login-form" @submit.prevent="submitTotp">
+          <p class="form-notice">{{ t('login.totpNotice') }}</p>
+          <label for="totp-code">{{ t('login.totpLabel') }}</label>
+          <input id="totp-code" v-model="totpCode" autocomplete="one-time-code" inputmode="numeric"
+                 :placeholder="t('login.totpPlaceholder')" required type="text">
+          <p class="form-hint">{{ t('login.totpHint') }}</p>
+          <p v-if="localError" class="form-error" role="alert">{{ localError }}</p>
+          <button class="submit-button" type="submit" :disabled="auth.loading">
+            <span>{{ auth.loading ? t('login.submitting') : t('login.verifyTotp') }}</span><span aria-hidden="true">↗</span>
+          </button>
+          <button class="secondary-button" type="button" @click="cancelTotp">{{ t('login.backToPassword') }}</button>
         </form>
 
         <div v-if="loginProviders.length" class="oauth">
@@ -218,9 +255,12 @@ h2 { margin: 0; font-size: clamp(36px, 4vw, 50px); line-height: 1.05; }
 .login-page .field-heading button { margin-bottom: 8px; padding: 0; border: 0; background: none; color: #748077; font: 10px 'DM Mono', monospace; text-decoration: underline; }
 .login-page .field-heading button:hover { color: #a9d36a; }
 .login-page .form-error { margin: -2px 0 16px; color: #c55a4a; font-size: 12px; }
+.login-page .form-hint { margin: -4px 0 16px; color: #748077; font-size: 11px; line-height: 1.6; }
 .login-page .submit-button { width: 100%; height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 0 17px 0 20px; border: 1px solid #a9d36a; border-radius: 0; background: #a9d36a; color: #10180d; font-size: 12px; font-weight: 700; }
 .login-page .submit-button:hover:not(:disabled) { background: #c2e983; }
 .login-page .submit-button:disabled { cursor: wait; opacity: .62; }
+.login-page .secondary-button { display: block; width: 100%; margin-top: 12px; min-height: 42px; border: 1px solid #283129; background: transparent; color: #aab4a8; font-size: 11px; }
+.login-page .secondary-button:hover { border-color: #769d4c; color: #a9d36a; }
 .login-page .register-hint { margin: 24px 0 0; color: #748077; text-align: center; font-size: 12px; }
 .login-page .register-hint__link { color: #a9d36a; font-weight: 600; text-decoration: underline; }
 .login-page .oauth { margin-top: 30px; }

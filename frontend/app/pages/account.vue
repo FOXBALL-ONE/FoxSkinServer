@@ -17,6 +17,13 @@ const avatarInput = ref<HTMLInputElement | null>(null)
 
 const form = reactive({ nickname: '' })
 const passwordForm = reactive({ current: '', next: '', confirm: '' })
+const totp = ref<{ enabled: boolean; confirmed_at: string | null; remaining_backup_codes: number } | null>(null)
+const totpBusy = ref(false)
+const totpNotice = ref<Feedback | null>(null)
+const totpSetup = ref<{ otpauth_uri: string; secret: string } | null>(null)
+const totpCode = ref('')
+const totpPassword = ref('')
+const backupCodes = ref<string[]>([])
 
 const LOCALE_OPTIONS = [
   { value: 'zh-CN', label: '简体中文' },
@@ -126,6 +133,85 @@ async function changeLocale(value: string) {
   await setLocale(value)
 }
 
+function showTotpError(error: unknown, fallback: string) {
+  totpNotice.value = { tone: 'error', text: describe(error, fallback) }
+}
+
+async function loadTotp() {
+  try {
+    totp.value = await auth.loadTotp()
+  } catch (error: unknown) {
+    showTotpError(error, t('account.totpLoadFailed'))
+  }
+}
+
+async function startTotpSetup() {
+  totpNotice.value = null
+  totpBusy.value = true
+  try {
+    totpSetup.value = await auth.setupTotp(totpPassword.value)
+    totpPassword.value = ''
+    totpCode.value = ''
+    totpNotice.value = { tone: 'ok', text: t('account.totpSetupReady') }
+  } catch (error: unknown) {
+    showTotpError(error, t('account.totpSetupFailed'))
+  } finally {
+    totpBusy.value = false
+  }
+}
+
+async function confirmTotpSetup() {
+  totpNotice.value = null
+  totpBusy.value = true
+  try {
+    const result = await auth.confirmTotp(totpPassword.value, totpCode.value)
+    backupCodes.value = result.backup_codes
+    totpSetup.value = null
+    totpPassword.value = ''
+    totpCode.value = ''
+    await loadTotp()
+    totpNotice.value = { tone: 'ok', text: t('account.totpEnabled') }
+  } catch (error: unknown) {
+    showTotpError(error, t('account.totpConfirmFailed'))
+  } finally {
+    totpBusy.value = false
+  }
+}
+
+async function disableTotp() {
+  totpNotice.value = null
+  totpBusy.value = true
+  try {
+    await auth.disableTotp(totpPassword.value, totpCode.value)
+    totpPassword.value = ''
+    totpCode.value = ''
+    backupCodes.value = []
+    await loadTotp()
+    totpNotice.value = { tone: 'ok', text: t('account.totpDisabled') }
+  } catch (error: unknown) {
+    showTotpError(error, t('account.totpDisableFailed'))
+  } finally {
+    totpBusy.value = false
+  }
+}
+
+async function regenerateBackupCodes() {
+  totpNotice.value = null
+  totpBusy.value = true
+  try {
+    const result = await auth.regenerateTotpBackupCodes(totpPassword.value, totpCode.value)
+    backupCodes.value = result.backup_codes
+    totpPassword.value = ''
+    totpCode.value = ''
+    await loadTotp()
+    totpNotice.value = { tone: 'ok', text: t('account.totpBackupRegenerated') }
+  } catch (error: unknown) {
+    showTotpError(error, t('account.totpBackupRegenerateFailed'))
+  } finally {
+    totpBusy.value = false
+  }
+}
+
 const bindNotice = ref<Feedback | null>(null)
 const bindingBusy = ref(false)
 const accountProviders = computed(() => auth.oauthProviders.filter((item) => item.id !== 'microsoft'))
@@ -170,6 +256,7 @@ onMounted(async () => {
     return
   }
   await auth.loadProfile()
+  await loadTotp()
   applyProfile()
   loadingProfile.value = false
   // 绑定卡片：提供商列表与当前绑定并行取；绑定成功的回跳会带 ?bound=provider。
@@ -305,6 +392,63 @@ onMounted(async () => {
         <p class="hint">{{ t('account.identifierHint', { username: profile.username, email: profile.email }) }}</p>
       </article>
 
+      <article class="panel totp-panel">
+        <header class="panel__head">
+          <p class="eyebrow">TWO-FACTOR AUTHENTICATION</p>
+          <h2>{{ t('account.totpTitle') }}</h2>
+        </header>
+
+        <p class="hint">{{ totp?.enabled ? t('account.totpEnabledHint') : t('account.totpDisabledHint') }}</p>
+        <p v-if="totp" class="totp-status">
+          {{ totp.enabled ? t('account.totpStatusOn') : t('account.totpStatusOff') }}
+          <span v-if="totp.enabled"> · {{ t('account.totpRemaining', { count: totp.remaining_backup_codes }) }}</span>
+        </p>
+
+        <form v-if="!totp?.enabled && !totpSetup" class="form" @submit.prevent="startTotpSetup">
+          <label for="totp-setup-password">{{ t('account.currentPassword') }}</label>
+          <input id="totp-setup-password" v-model="totpPassword" autocomplete="current-password" type="password">
+          <button :disabled="totpBusy" class="primary-button" type="submit">
+            {{ totpBusy ? t('account.submitting') : t('account.totpStartSetup') }}
+          </button>
+        </form>
+
+        <form v-if="totpSetup" class="form" @submit.prevent="confirmTotpSetup">
+          <label>{{ t('account.totpSecret') }}</label>
+          <code class="totp-secret">{{ totpSetup.secret }}</code>
+          <label>{{ t('account.totpUri') }}</label>
+          <code class="totp-secret">{{ totpSetup.otpauth_uri }}</code>
+          <label for="totp-confirm-code">{{ t('account.totpCode') }}</label>
+          <input id="totp-confirm-code" v-model="totpCode" autocomplete="one-time-code" inputmode="numeric" type="text">
+          <label for="totp-confirm-password">{{ t('account.currentPassword') }}</label>
+          <input id="totp-confirm-password" v-model="totpPassword" autocomplete="current-password" type="password">
+          <button :disabled="totpBusy" class="primary-button" type="submit">
+            {{ totpBusy ? t('account.submitting') : t('account.totpConfirm') }}
+          </button>
+        </form>
+
+        <div v-if="totp?.enabled" class="form">
+          <label for="totp-manage-code">{{ t('account.totpCodeOrBackup') }}</label>
+          <input id="totp-manage-code" v-model="totpCode" autocomplete="one-time-code" inputmode="numeric" type="text">
+          <label for="totp-manage-password">{{ t('account.currentPassword') }}</label>
+          <input id="totp-manage-password" v-model="totpPassword" autocomplete="current-password" type="password">
+          <div class="totp-actions">
+            <button :disabled="totpBusy" class="primary-button" type="button" @click="regenerateBackupCodes">
+              {{ t('account.totpRegenerate') }}
+            </button>
+            <button :disabled="totpBusy" class="bindings__action bindings__action--danger" type="button" @click="disableTotp">
+              {{ t('account.totpDisable') }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="backupCodes.length" class="backup-codes">
+          <strong>{{ t('account.totpBackupCodesTitle') }}</strong>
+          <p class="hint">{{ t('account.totpBackupCodesHint') }}</p>
+          <code v-for="code in backupCodes" :key="code">{{ code }}</code>
+        </div>
+        <p v-if="totpNotice" :class="`form-feedback form-feedback--${totpNotice.tone}`" role="status">{{ totpNotice.text }}</p>
+      </article>
+
       <article class="panel">
         <header class="panel__head">
           <p class="eyebrow">CONNECTIONS</p>
@@ -383,6 +527,13 @@ onMounted(async () => {
 .primary-button { display: inline-flex; align-items: center; gap: 26px; min-height: 44px; margin-top: 20px; padding: 0 16px 0 19px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700; transition: transform .2s, background .2s; }
 .primary-button:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-2px); }
 .primary-button:disabled { cursor: wait; opacity: .65; }
+.totp-status { margin: 16px 0; color: var(--text-body); font-size: 12px; }
+.totp-secret { display: block; margin: 0 0 20px; padding: 12px; overflow-wrap: anywhere; border: 1px solid var(--border); background: var(--surface-raised); color: var(--text-body); font: 12px 'DM Mono', monospace; letter-spacing: .08em; }
+.totp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.totp-actions .primary-button { margin-top: 0; }
+.backup-codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 20px; padding: 15px; border: 1px solid var(--accent-strong); background: var(--surface-raised); }
+.backup-codes strong, .backup-codes .hint { grid-column: 1 / -1; }
+.backup-codes code { padding: 8px; color: var(--text-body); font: 12px 'DM Mono', monospace; text-align: center; }
 .bindings { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .bindings__item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 13px; border: 1px solid var(--border); background: var(--surface-raised); }
 .bindings__info b { display: flex; align-items: center; gap: 9px; font-size: 13px; }

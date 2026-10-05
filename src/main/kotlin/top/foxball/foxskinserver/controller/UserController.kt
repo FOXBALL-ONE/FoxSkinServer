@@ -11,6 +11,7 @@ import top.foxball.foxskinserver.security.AuthenticatedUser
 import top.foxball.foxskinserver.service.AuthService
 import top.foxball.foxskinserver.service.PlayerService
 import top.foxball.foxskinserver.service.UserService
+import top.foxball.foxskinserver.service.TotpService
 import top.foxball.foxskinserver.shared.Response
 import top.foxball.foxskinserver.shared.ResponseBuilder
 import java.time.LocalDateTime
@@ -22,6 +23,7 @@ class UserController(
     private val playerService: PlayerService,
     private val authService: AuthService,
     private val responseBuilder: ResponseBuilder,
+    private val totpService: TotpService,
 ) {
     @GetMapping("/api/users/{id}")
     @PreAuthorize("#id == authentication.principal.userId or hasRole('ADMIN')")
@@ -41,7 +43,7 @@ class UserController(
         )
         return responseBuilder.ok().data(rs).build()
     }
-    
+
     @GetMapping("/api/users/by-player")
     @PreAuthorize("hasRole('ADMIN')")
     fun getUserByPlayerName(
@@ -64,7 +66,7 @@ class UserController(
         )
         return responseBuilder.ok().data(rs).build()
     }
-    
+
     /**
      * @api 获取当前登录用户的个人资料
      */
@@ -190,6 +192,79 @@ class UserController(
         authService.changePassword(principal.userId, currentPassword, newPassword)
         val rs = Response(true)
         return responseBuilder.ok().data(rs).build()
+    }
+
+    @GetMapping("/api/users/me/totp")
+    fun getMyTotp(@AuthenticationPrincipal principal: AuthenticatedUser)
+    : ResponseEntity<Response> {
+        data class TotpData(
+            val enabled: Boolean,
+            @param:JsonProperty("confirmed_at")
+            val confirmedAt: LocalDateTime?,
+            @param:JsonProperty("remaining_backup_codes")
+            val remainingBackupCodes: Long,
+        )
+        val status = totpService.status(principal.userId)
+        return responseBuilder.ok().data(TotpData(status.enabled, status.confirmedAt, status.remainingBackupCodes)).build()
+    }
+
+    @PostMapping("/api/users/me/totp/setup")
+    fun setupTotp(
+        @AuthenticationPrincipal principal: AuthenticatedUser,
+        @RequestParam("current_password") currentPassword: String,
+    ): ResponseEntity<Response> {
+        data class SetupData(
+            @param:JsonProperty("otpauth_uri") val otpauthUri: String,
+            val secret: String,
+        )
+        val user = userService.findById(principal.userId)
+            ?: return responseBuilder.notFound().build()
+        val passwordValid = userService.verifyPassword(principal.userId, currentPassword)
+        val setup = totpService.setup(principal.userId, passwordValid, user.email)
+        return responseBuilder.ok().data(SetupData(setup.otpauthUri, setup.secret)).build()
+    }
+
+    @PostMapping("/api/users/me/totp/confirm")
+    fun confirmTotp(
+        @AuthenticationPrincipal principal: AuthenticatedUser,
+        @RequestParam("current_password") currentPassword: String,
+        @RequestParam("code") code: String,
+    ): ResponseEntity<Response> {
+        data class BackupCodesData(
+            val enabled: Boolean,
+            @param:JsonProperty("backup_codes")
+            val backupCodes: List<String>,
+        )
+        val passwordValid = userService.verifyPassword(principal.userId, currentPassword)
+        val backupCodes = totpService.confirm(principal.userId, passwordValid, code)
+        return responseBuilder.ok().data(BackupCodesData(true, backupCodes)).build()
+    }
+
+    @PostMapping("/api/users/me/totp/disable")
+    fun disableTotp(
+        @AuthenticationPrincipal principal: AuthenticatedUser,
+        @RequestParam("current_password") currentPassword: String,
+        @RequestParam("code") code: String,
+    ): ResponseEntity<Response> {
+        data class DisabledData(val enabled: Boolean)
+        val passwordValid = userService.verifyPassword(principal.userId, currentPassword)
+        totpService.disable(principal.userId, passwordValid, code)
+        return responseBuilder.ok().data(DisabledData(false)).build()
+    }
+
+    @PostMapping("/api/users/me/totp/backup-codes/regenerate")
+    fun regenerateTotpBackupCodes(
+        @AuthenticationPrincipal principal: AuthenticatedUser,
+        @RequestParam("current_password") currentPassword: String,
+        @RequestParam("code") code: String,
+    ): ResponseEntity<Response> {
+        data class BackupCodesData(
+            @param:JsonProperty("backup_codes")
+            val backupCodes: List<String>,
+        )
+        val passwordValid = userService.verifyPassword(principal.userId, currentPassword)
+        val backupCodes = totpService.regenerateBackupCodes(principal.userId, passwordValid, code)
+        return responseBuilder.ok().data(BackupCodesData(backupCodes)).build()
     }
     
     /**

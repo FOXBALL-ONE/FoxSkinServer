@@ -25,6 +25,11 @@ class UserService(
     private val fileService: FileService,
     private val passwordEncoder: PasswordEncoder,
 ) {
+    /** 校验当前密码，供高风险账户设置操作复用。 */
+    fun verifyPassword(userId: Long, password: String): Boolean {
+        val user = userRepository.findUserById(userId) ?: return false
+        return passwordEncoder.matches(password, user.password)
+    }
     
     fun getUserById(id: Long): User? {
         return userRepository.findUserById(id)

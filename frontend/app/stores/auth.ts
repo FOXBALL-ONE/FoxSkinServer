@@ -6,6 +6,23 @@ interface AuthTokens {
     expires_in: number;
 }
 
+export interface TotpChallenge {
+    requires_totp: true;
+    challenge_token: string;
+    expires_in: number;
+}
+
+export interface TotpStatus {
+    enabled: boolean;
+    confirmed_at: string | null;
+    remaining_backup_codes: number;
+}
+
+export interface TotpSetup {
+    otpauth_uri: string;
+    secret: string;
+}
+
 export interface AuthUser {
     user_id: number;
     email: string;
@@ -70,6 +87,7 @@ export const useAuthStore = defineStore("auth", () => {
     const loading = ref(false);
     const hydrated = ref(false);
     const lastError = ref<string | null>(null);
+    const totpChallenge = ref<TotpChallenge | null>(null);
     /** 已启用的第三方登录提供商；未配置任何提供商时为空数组，登录页随之隐藏入口。 */
     const oauthProviders = ref<OAuthProviderInfo[]>([]);
     /** 当前用户的第三方账号绑定列表。 */
@@ -83,7 +101,12 @@ export const useAuthStore = defineStore("auth", () => {
         loading.value = true;
         lastError.value = null;
         try {
-            const tokens = await http.post<AuthTokens, { username: string; password: string }>("/auth/login", {username, password});
+            const result = await http.post<AuthTokens | TotpChallenge, { username: string; password: string }>("/auth/login", {username, password});
+            if ("requires_totp" in result && result.requires_totp) {
+                totpChallenge.value = result;
+                return false;
+            }
+            const tokens = result as AuthTokens;
             accessToken.value = tokens.access_token;
             await loadCurrentUser();
             return true;
@@ -93,6 +116,32 @@ export const useAuthStore = defineStore("auth", () => {
         } finally {
             loading.value = false;
         }
+    }
+
+    async function verifyTotp(code: string) {
+        if (!totpChallenge.value) return false;
+        loading.value = true;
+        lastError.value = null;
+        try {
+            const tokens = await http.post<AuthTokens, { challenge_token: string; code: string }>("/auth/login/totp", {
+                challenge_token: totpChallenge.value.challenge_token,
+                code,
+            }, {businessErrorStatuses: [400]});
+            accessToken.value = tokens.access_token;
+            totpChallenge.value = null;
+            await loadCurrentUser();
+            return true;
+        } catch (error: unknown) {
+            lastError.value = errorMessage(error);
+            return false;
+        } finally {
+            loading.value = false;
+        }
+    }
+
+    function cancelTotp() {
+        totpChallenge.value = null;
+        lastError.value = null;
     }
 
     async function loadCurrentUser() {
@@ -191,6 +240,7 @@ export const useAuthStore = defineStore("auth", () => {
             accessToken.value = null;
             user.value = null;
             profile.value = null;
+            totpChallenge.value = null;
             hydrated.value = true;
         }
     }
@@ -208,6 +258,35 @@ export const useAuthStore = defineStore("auth", () => {
             lastError.value = errorMessage(error);
             return null;
         }
+    }
+
+    async function loadTotp() {
+        return await http.get<TotpStatus>("/users/me/totp");
+    }
+
+    async function setupTotp(currentPassword: string) {
+        return await http.post<TotpSetup, { current_password: string }>("/users/me/totp/setup", {current_password: currentPassword});
+    }
+
+    async function confirmTotp(currentPassword: string, code: string) {
+        return await http.post<{ enabled: boolean; backup_codes: string[] }, { current_password: string; code: string }>(
+            "/users/me/totp/confirm",
+            {current_password: currentPassword, code},
+        );
+    }
+
+    async function disableTotp(currentPassword: string, code: string) {
+        return await http.post<{ enabled: boolean }, { current_password: string; code: string }>(
+            "/users/me/totp/disable",
+            {current_password: currentPassword, code},
+        );
+    }
+
+    async function regenerateTotpBackupCodes(currentPassword: string, code: string) {
+        return await http.post<{ backup_codes: string[] }, { current_password: string; code: string }>(
+            "/users/me/totp/backup-codes/regenerate",
+            {current_password: currentPassword, code},
+        );
     }
 
     /** 更新资料；成功后同步 user 上的昵称，让顶栏展示立刻跟上。 */
@@ -278,11 +357,14 @@ export const useAuthStore = defineStore("auth", () => {
         loading,
         hydrated,
         lastError,
+        totpChallenge,
         oauthProviders,
         connections,
         isAuthenticated,
         isAdmin,
         login,
+        verifyTotp,
+        cancelTotp,
         register,
         startOAuth,
         applyOAuthToken,
@@ -291,6 +373,11 @@ export const useAuthStore = defineStore("auth", () => {
         unbind,
         loadCurrentUser,
         loadProfile,
+        loadTotp,
+        setupTotp,
+        confirmTotp,
+        disableTotp,
+        regenerateTotpBackupCodes,
         updateProfile,
         changePassword,
         uploadAvatar,

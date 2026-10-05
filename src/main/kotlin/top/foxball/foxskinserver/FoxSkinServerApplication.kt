@@ -8,6 +8,7 @@ import top.foxball.foxskinserver.config.FileProperties
 import top.foxball.foxskinserver.config.OAuthProperties
 import top.foxball.foxskinserver.config.MojangProperties
 import top.foxball.foxskinserver.config.YggdrasilProperties
+import top.foxball.foxskinserver.config.TotpProperties
 
 @SpringBootApplication
 @EnableConfigurationProperties(
@@ -16,6 +17,7 @@ import top.foxball.foxskinserver.config.YggdrasilProperties
     OAuthProperties::class,
     MojangProperties::class,
     YggdrasilProperties::class,
+    TotpProperties::class,
 )
 class FoxSkinServerApplication
 
