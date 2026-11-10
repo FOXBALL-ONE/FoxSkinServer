@@ -12,7 +12,12 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api'
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
+      // 页脚 ICP 备案：备案号文案与点击后跳转的地址都可通过环境变量配置。
+      // 例：NUXT_PUBLIC_ICP_TEXT=蜀ICP备2021020645号-1  NUXT_PUBLIC_ICP_URL=https://beian.miit.gov.cn/
+      // 留空 icpText 时页脚不显示备案信息。
+      icpText: process.env.NUXT_PUBLIC_ICP_TEXT || '',
+      icpUrl: process.env.NUXT_PUBLIC_ICP_URL || 'https://beian.miit.gov.cn/'
     }
   },
   nitro: {
