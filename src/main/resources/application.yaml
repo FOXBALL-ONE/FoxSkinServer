@@ -115,6 +115,14 @@ foxskin:
       client-secret: "${FOXSKIN_OAUTH_OIDC_CLIENT_SECRET:}"
       scope: "${FOXSKIN_OAUTH_OIDC_SCOPE:openid profile email}"
       display-name: "${FOXSKIN_OAUTH_OIDC_DISPLAY_NAME:OIDC}"
+    sso:
+      issuer: "${FOXSKIN_OAUTH_SSO_ISSUER:}"
+      client-id: "${FOXSKIN_OAUTH_SSO_CLIENT_ID:}"
+      client-secret: "${FOXSKIN_OAUTH_SSO_CLIENT_SECRET:}"
+      scope: "${FOXSKIN_OAUTH_SSO_SCOPE:openid profile email}"
+      display-name: "${FOXSKIN_OAUTH_SSO_DISPLAY_NAME:SSO}"
+      # 无匹配账号时：false 拒绝登录（仅已有账号可用 SSO），true 自动建号。二者互斥。
+      auto-provision: "${FOXSKIN_OAUTH_SSO_AUTO_PROVISION:false}"
     microsoft:
       client-id: "${FOXSKIN_OAUTH_MICROSOFT_CLIENT_ID:}"
       client-secret: "${FOXSKIN_OAUTH_MICROSOFT_CLIENT_SECRET:}"

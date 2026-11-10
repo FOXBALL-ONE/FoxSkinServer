@@ -18,6 +18,10 @@ data class OAuthIdentity(
     val avatarUrl: String? = null,
     /** 提供商返回的邮箱（OIDC `email` 声明），QQ 互联不提供，可为空。 */
     val email: String? = null,
+    /** 提供商登录句柄（OIDC `preferred_username` 声明），企业 SSO 按用户名匹配本站账号时使用，可为空。 */
+    val username: String? = null,
+    /** 提供商是否已验证 [email]（OIDC `email_verified` 声明）；SSO 按邮箱匹配本站账号时要求为真。 */
+    val emailVerified: Boolean = false,
 )
 
 /**

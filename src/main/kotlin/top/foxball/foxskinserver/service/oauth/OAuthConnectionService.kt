@@ -48,6 +48,54 @@ class OAuthConnectionService(
         }
     }
     
+    /**
+     * SSO 登录流程（参考 Keycloak）：先按 (provider, sub) 找已有绑定；没有时按外部身份的
+     * 已验证邮箱或用户名匹配本站已有账号并自动绑定；仍无匹配时按 [autoProvision] 决定落地：
+     * 为真沿用社交登录逻辑自动建号，为假拒绝登录（仅允许已有账号通过 SSO 登录）。
+     *
+     * 邮箱匹配要求提供商声明 `email_verified=true`，防止他人用受害者邮箱注册 SSO 身份后接管本站账号。
+     */
+    @Transactional
+    fun loginViaSso(identity: OAuthIdentity, autoProvision: Boolean): User {
+        connectionRepository.findByProviderAndOpenId(SSO_PROVIDER, identity.openId)?.let { connection ->
+            return userRepository.findUserById(connection.userId)
+                ?: throw ParamErrorException("绑定记录指向的用户不存在，请联系管理员")
+        }
+        val verifiedEmail = identity.email?.trim()?.lowercase()?.takeIf { identity.emailVerified && it.isNotBlank() }
+        val matched = verifiedEmail?.let { userRepository.findByEmail(it) }
+            ?: identity.username?.trim()?.takeIf { it.isNotBlank() }?.let { userRepository.findByUsername(it) }
+        if (matched != null) {
+            val userId = requireNotNull(matched.id) { "匹配到的用户缺少主键" }
+            // 该账号已绑定另一 SSO 身份（sub 不同，否则上面已命中），拒绝以防身份顶替。
+            if (connectionRepository.findByUserIdAndProvider(userId, SSO_PROVIDER) != null) {
+                throw ParamErrorException("该账号已绑定其他 SSO 身份，请联系管理员处理")
+            }
+            connectionRepository.save(
+                UserConnection(
+                    userId = userId,
+                    provider = SSO_PROVIDER,
+                    openId = identity.openId,
+                    unionId = identity.unionId,
+                    nickname = identity.nickname,
+                    avatarUrl = identity.avatarUrl,
+                    createdAt = LocalDateTime.now(),
+                ),
+            )
+            return matched
+        }
+        if (!autoProvision) {
+            throw ParamErrorException("未找到与该 SSO 身份匹配的本站账号，请先注册或使用其他方式登录后在账户页绑定")
+        }
+        return try {
+            createUser(SSO_PROVIDER, identity)
+        } catch (_: DataIntegrityViolationException) {
+            val connection = connectionRepository.findByProviderAndOpenId(SSO_PROVIDER, identity.openId)
+                ?: throw UserAlreadyExistsException("SSO 账号注册冲突，请稍后重试")
+            userRepository.findUserById(connection.userId)
+                ?: throw ParamErrorException("绑定记录指向的用户不存在，请联系管理员")
+        }
+    }
+
     /** 绑定流程：把外部身份挂到 [userId] 名下；该外部身份已属于别人时报冲突。 */
     @Transactional
     fun bind(userId: Long, provider: String, identity: OAuthIdentity): UserConnection {
@@ -136,6 +184,9 @@ class OAuthConnectionService(
         "${provider}_${openId.take(48)}$NOREPLY_EMAIL_SUFFIX".lowercase()
     
     companion object {
+        /** SSO 提供商组件 id，与 [top.foxball.foxskinserver.service.oauth.SsoOAuthProvider.id] 一致。 */
+        const val SSO_PROVIDER = "sso"
+
         /** OAuth 自动注册用户使用占位邮箱；解绑保护与后续补全邮箱流程都以该后缀识别。 */
         const val NOREPLY_EMAIL_SUFFIX = "@users.noreply.foxskin.local"
         

@@ -12,7 +12,10 @@ const showPassword = ref(false);
 const localError = ref("");
 const requiresTotp = computed(() => Boolean(auth.totpChallenge));
 
-const loginProviders = computed(() => auth.oauthProviders.filter((item) => item.id !== 'microsoft'))
+// SSO（企业单点登录）与普通第三方登录在视觉上区分：SSO 单列并带强调样式，social 走原有列表。
+const ssoProviders = computed(() => auth.oauthProviders.filter((item) => item.id === 'sso'))
+const socialProviders = computed(() =>
+    auth.oauthProviders.filter((item) => item.id !== 'microsoft' && item.id !== 'sso'))
 const redirectPath = computed(() => {
     const value = route.query.redirect;
     return typeof value === "string" && value.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
@@ -139,15 +142,34 @@ async function oauth(providerId: string) {
           <button class="secondary-button" type="button" @click="cancelTotp">{{ t('login.backToPassword') }}</button>
         </form>
 
-        <div v-if="loginProviders.length" class="oauth">
-          <p class="oauth__divider"><span>{{ t('login.oauthDivider') }}</span></p>
-          <div class="oauth__buttons">
-            <button v-for="item in loginProviders" :key="item.id" class="oauth__button" type="button"
-                    @click="oauth(item.id)">
-              <span class="oauth__mark" aria-hidden="true">{{ item.display_name.slice(0, 1) }}</span>
-              <span>{{ t('login.oauthButton', { provider: item.display_name }) }}</span>
-            </button>
-          </div>
+        <div v-if="ssoProviders.length || socialProviders.length" class="oauth">
+          <template v-if="ssoProviders.length">
+            <p class="oauth__divider oauth__divider--sso"><span>{{ t('login.ssoDivider') }}</span></p>
+            <div class="oauth__buttons">
+              <button v-for="item in ssoProviders" :key="item.id" class="oauth__button oauth__button--sso"
+                      type="button" @click="oauth(item.id)">
+                <span class="oauth__mark oauth__mark--sso" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2 4 5v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V5z" />
+                    <path d="m9 12 2 2 4-4" />
+                  </svg>
+                </span>
+                <span class="oauth__label">{{ t('login.ssoButton', { provider: item.display_name }) }}</span>
+                <span class="oauth__badge" aria-hidden="true">SSO</span>
+              </button>
+            </div>
+          </template>
+          <template v-if="socialProviders.length">
+            <p class="oauth__divider"><span>{{ t('login.oauthDivider') }}</span></p>
+            <div class="oauth__buttons">
+              <button v-for="item in socialProviders" :key="item.id" class="oauth__button" type="button"
+                      @click="oauth(item.id)">
+                <span class="oauth__mark" aria-hidden="true">{{ item.display_name.slice(0, 1) }}</span>
+                <span>{{ t('login.oauthButton', { provider: item.display_name }) }}</span>
+              </button>
+            </div>
+          </template>
         </div>
 
         <p class="register-hint">{{ t('login.noAccount') }}
@@ -207,6 +229,12 @@ h2 { margin: 0; font-size: clamp(36px, 4vw, 50px); line-height: 1.05; }
 .oauth__button { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 44px; padding: 0 14px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--text); font-size: 13px; transition: border-color .2s, background .2s; }
 .oauth__button:hover { border-color: var(--accent-strong); }
 .oauth__mark { display: grid; width: 22px; height: 22px; place-items: center; background: var(--accent); color: var(--accent-ink); font: 700 11px 'Space Grotesk', sans-serif; }
+.oauth__divider--sso { color: var(--accent-strong); }
+.oauth__button--sso { border-color: var(--accent-strong); background: var(--accent-soft-bg); font-weight: 600; }
+.oauth__button--sso:hover { border-color: var(--accent); background: var(--accent-soft-bg); }
+.oauth__mark--sso svg { width: 13px; height: 13px; }
+.oauth__label { flex: 1; text-align: left; }
+.oauth__badge { padding: 2px 7px; border: 1px solid var(--accent-strong); background: var(--accent-tag-bg); color: var(--accent-tag-ink); font: 700 9px 'DM Mono', monospace; letter-spacing: .12em; }
 .back-link { display: block; margin-top: 54px; color: var(--text-faint); text-align: center; font: 10px 'DM Mono', monospace; letter-spacing: .05em; text-decoration: none; }
 @media (max-width: 800px) { .login-page { display: block; }.login-visual { display: none; }.login-panel { min-height: 100svh; padding: 32px 24px; align-items: start; }.login-panel__inner { padding-top: 4vh; }.mobile-brand { display: inline-flex; }.login-panel .section-kicker { margin-top: 16px; } }
 @media (min-width: 801px) and (max-height: 700px) { .login-visual__content { padding-top: 28px; padding-bottom: 28px; }.login-visual__copy { margin: 11vh 0 auto; }.login-panel { padding-top: 28px; padding-bottom: 28px; }.mobile-brand { margin-bottom: 32px; } }
@@ -270,6 +298,14 @@ h2 { margin: 0; font-size: clamp(36px, 4vw, 50px); line-height: 1.05; }
 .login-page .oauth__button { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 44px; padding: 0 14px; border: 1px solid #283129; border-radius: 0; background: #141a16; color: #e8ece5; font-size: 12px; }
 .login-page .oauth__button:hover { border-color: #769d4c; background: #18231c; }
 .login-page .oauth__mark { display: grid; width: 22px; height: 22px; place-items: center; background: #769d4c; color: #10180d; font: 700 11px 'Space Grotesk', sans-serif; }
+.login-page .oauth__divider--sso { color: #a9d36a; }
+.login-page .oauth__divider--sso::before, .login-page .oauth__divider--sso::after { background: linear-gradient(90deg, transparent, #3a4a30); }
+.login-page .oauth__button--sso { position: relative; border-color: #769d4c; background: linear-gradient(90deg, rgba(169, 211, 106, .13), rgba(169, 211, 106, .03)); color: #e8ece5; font-weight: 600; }
+.login-page .oauth__button--sso:hover { border-color: #a9d36a; background: linear-gradient(90deg, rgba(169, 211, 106, .22), rgba(169, 211, 106, .06)); }
+.login-page .oauth__mark--sso { background: #a9d36a; color: #10180d; }
+.login-page .oauth__mark--sso svg { width: 13px; height: 13px; }
+.login-page .oauth__label { flex: 1; text-align: left; }
+.login-page .oauth__badge { padding: 2px 7px; border: 1px solid #769d4c; background: rgba(169, 211, 106, .08); color: #a9d36a; font: 700 9px 'DM Mono', monospace; letter-spacing: .12em; }
 .login-page .back-link { display: block; margin-top: 44px; color: #748077; text-align: center; font: 9px 'DM Mono', monospace; letter-spacing: .06em; text-decoration: none; }
 .login-page .back-link:hover { color: #a9d36a; }
 

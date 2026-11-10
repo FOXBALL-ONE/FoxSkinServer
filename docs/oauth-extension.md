@@ -33,7 +33,7 @@ sequenceDiagram
 | 部分 | 职责 |
 | --- | --- |
 | `OAuthProvider` SPI | 提供商契约：授权页地址、授权码换取身份；新渠道只需实现并注册 Bean |
-| `QQOAuthProvider` / `OidcOAuthProvider` | QQ 互联与通用 OIDC 的协议实现 |
+| `QQOAuthProvider` / `OidcOAuthProvider` / `SsoOAuthProvider` | QQ 互联、通用 OIDC（社交登录）与企业 SSO 的协议实现；后两者协议相同，复用 `OidcClient` |
 | `OAuthConnectionService` | 绑定关系与用户落地：首登建号、绑定、解绑保护 |
 | `OAuthStateStore` | Redis 一次性 state，防 CSRF 与回调伪造 |
 
@@ -56,7 +56,9 @@ sequenceDiagram
 | `FOXSKIN_OAUTH_PUBLIC_URL` | 站点对外地址，用于拼 redirect_uri；同域反代部署可留空（从请求头推导） |
 | `FOXSKIN_OAUTH_FRONTEND_URL` | 前端地址；前后端分域（本地开发）必须配置，同域部署留空 |
 | `FOXSKIN_OAUTH_QQ_CLIENT_ID` / `QQ_CLIENT_SECRET` | QQ 互联 AppID/AppKey，配置后启用 QQ 登录 |
-| `FOXSKIN_OAUTH_OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | 通用 OIDC，配置后启用 |
+| `FOXSKIN_OAUTH_OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | 通用 OIDC（社交登录，首登自动建号），配置后启用 |
+| `FOXSKIN_OAUTH_SSO_ISSUER` / `SSO_CLIENT_ID` / `SSO_CLIENT_SECRET` | 企业 SSO（按用户名/邮箱匹配已有账号），配置后启用，可与 OIDC 同时开 |
+| `FOXSKIN_OAUTH_SSO_AUTO_PROVISION` | 无匹配账号时的落地策略（互斥）：`false`（默认）拒绝登录，`true` 自动建号 |
 | `FOXSKIN_OAUTH_STATE_TTL_SECONDS` | state 有效期，默认 300 秒 |
 
 ### 3.1 QQ 互联
@@ -75,6 +77,27 @@ Authelia、Casdoor 等）。`FOXSKIN_OAUTH_OIDC_ISSUER` 填 Issuer 地址（含�
 > 实现说明：拿到 access_token 后读取 userinfo 端点获取 `sub`，不复核 id_token 签名。
 > 令牌直接来自提供商 token 端点（全程 TLS），信任等价；这样规避了各提供商 id_token
 > 签名算法（HS256/RS256/EdDSA）与 JWKS 轮换的分歧，也不需要额外的密钥缓存设施。
+
+### 3.3 企业 SSO（参考 Keycloak）
+
+SSO（组件 id `sso`）与 3.2 的 OIDC 走**同一套协议**（两者的发现/换取逻辑都复用 `OidcClient`），
+通过独立的 `FOXSKIN_OAUTH_SSO_*` 配置启用，因此同一部署可同时开启"社交 OIDC 登录"和"企业 SSO 登录"
+两个不同的身份源。二者唯一的区别在**登录落地策略**：
+
+- OIDC（社交登录）：按 `(oidc, sub)` 找不到绑定即**自动建号**（占位邮箱 + 随机密码）。
+- SSO（企业登录）：按 `(sso, sub)` 找不到绑定时，**先用外部身份匹配本站已有账号并自动绑定**——
+  优先按**已验证邮箱**（要求提供商声明 `email_verified=true`），其次按**用户名**（`preferred_username`）。
+  仍无匹配时按 `FOXSKIN_OAUTH_SSO_AUTO_PROVISION` 落地（两种互斥）：
+  - `false`（默认）：拒绝登录，仅允许本站已有账号通过 SSO 登录（企业场景常用）；
+  - `true`：沿用社交登录逻辑自动建号。
+
+> 安全说明：邮箱匹配强制要求 `email_verified=true`，避免他人用受害者邮箱在 IdP 侧注册身份后
+> 顶替接管本站账号；未验证邮箱会被忽略，仅回退到用户名匹配。若匹配到的账号已绑定了另一个
+> SSO 身份（`sub` 不同），登录会被拒绝以防身份顶替。
+>
+> Keycloak 接入：`FOXSKIN_OAUTH_SSO_ISSUER` 填 realm 地址（如
+> `https://sso.example.com/realms/foxskin`），回调登记为 `<PUBLIC_URL>/api/auth/oauth/sso/callback`，
+> scope 保留 `openid profile email` 以拿到用户名与邮箱声明。
 
 ## 4. API 一览
 
@@ -100,6 +123,9 @@ Authelia、Casdoor 等）。`FOXSKIN_OAUTH_OIDC_ISSUER` 填 Issuer 地址（含�
 - `OAuthConnectionServiceTest`：首登建号（占位邮箱、随机密码）、绑定冲突、解绑保护；
 - `QQOAuthProviderTest`：授权页拼接、三段式换取、JSON/键值对/JSONP 兼容解析、错误载荷；
 - `OidcOAuthProviderTest`：发现文档解析、token/userinfo 请求、声明映射、坏文档报错；
+- `SsoOAuthProviderTest`：SSO 复用 OIDC 协议，`preferred_username` / `email_verified` 映射进身份；
+- `OAuthConnectionServiceTest` 的 SSO 用例：已验证邮箱匹配绑定、用户名匹配、无匹配拒绝/自动建号、
+  已绑定其他 SSO 身份时拒绝；
 - `UserServiceRegisterTest`：注册参数校验与唯一性。
 
-整理日期：2026-09-25。
+整理日期：2026-11-10。

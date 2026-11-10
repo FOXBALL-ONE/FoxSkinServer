@@ -21,6 +21,8 @@ data class OAuthProperties(
     var qq: Qq = Qq(),
     /** 通用 OIDC 提供商配置。 */
     var oidc: Oidc = Oidc(),
+    /** 企业 SSO 提供商配置（参考 Keycloak），按用户名/邮箱匹配已有账号。 */
+    var sso: Sso = Sso(),
     /** Microsoft OAuth 应用配置；配置 client-id 与 client-secret 后启用正版绑定。 */
     var microsoft: Microsoft = Microsoft(),
 ) {
@@ -46,6 +48,26 @@ data class OAuthProperties(
         var scope: String = "openid profile email",
         /** 前端展示名。 */
         var displayName: String = "OIDC",
+    )
+
+    /**
+     * 企业 SSO（参考 Keycloak），协议与 [Oidc] 相同，但登录时按用户名/邮箱匹配本站已有账号自动绑定。
+     * 与 [Oidc] 分开配置，可与社交 OIDC 登录同时启用。
+     */
+    data class Sso(
+        /** 提供商的 Issuer 地址，非空时启用 SSO 登录；Discovery 文档固定读 `{issuer}/.well-known/openid-configuration`。 */
+        var issuer: String = "",
+        var clientId: String = "",
+        var clientSecret: String = "",
+        /** 授权 scope，至少包含 openid；按邮箱匹配需要 email 声明，建议保留 `profile email`。 */
+        var scope: String = "openid profile email",
+        /** 前端展示名。 */
+        var displayName: String = "SSO",
+        /**
+         * 外部身份的用户名/邮箱在本站找不到对应账号时的落地策略，二者互斥：
+         * `false`（默认）拒绝登录，仅允许已有账号通过 SSO 登录；`true` 沿用社交登录逻辑自动建号。
+         */
+        var autoProvision: Boolean = false,
     )
 
     data class Microsoft(

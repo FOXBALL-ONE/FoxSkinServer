@@ -63,6 +63,8 @@
     "backHome": "← 返回首页",
     "oauthDivider": "或使用第三方登录",
     "oauthButton": "使用 {provider} 继续",
+    "ssoDivider": "企业单点登录（SSO）",
+    "ssoButton": "通过 {provider} 单点登录",
     "oauthFailed": "跳转第三方登录失败，请稍后再试",
     "goRegister": "注册新账号"
   },

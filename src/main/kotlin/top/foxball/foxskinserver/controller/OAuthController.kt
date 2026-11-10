@@ -137,7 +137,11 @@ class OAuthController(
                 }
                 
                 OAuthStateStore.Mode.LOGIN -> {
-                    val user = connectionService.findOrCreateUser(impl.id, identity)
+                    val user = if (impl.id == SSO_PROVIDER_ID) {
+                        connectionService.loginViaSso(identity, oauthProperties.sso.autoProvision)
+                    } else {
+                        connectionService.findOrCreateUser(impl.id, identity)
+                    }
                     val tokens = authService.issue(AuthenticatedUser.from(user))
                     response.addHeader("Set-Cookie", refreshCookie(tokens.refreshToken).toString())
                     redirectToFrontend(
@@ -185,6 +189,7 @@ class OAuthController(
     /** redirect 参数只接受站内相对路径，防开放重定向。 */
     private companion object {
         private const val MICROSOFT_PROVIDER_ID = "microsoft"
+        private const val SSO_PROVIDER_ID = "sso"
     }
     private fun sanitizePath(value: String?): String =
         if (value != null && value.startsWith("/") && !value.startsWith("//")) value else "/dashboard"

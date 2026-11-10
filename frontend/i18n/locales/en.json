@@ -63,6 +63,8 @@
     "backHome": "← Back to home",
     "oauthDivider": "Or continue with",
     "oauthButton": "Continue with {provider}",
+    "ssoDivider": "Enterprise single sign-on (SSO)",
+    "ssoButton": "Sign in with {provider} SSO",
     "oauthFailed": "Could not start the sign-in, please try again later",
     "goRegister": "Create an account"
   },

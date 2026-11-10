@@ -458,9 +458,21 @@ onMounted(async () => {
         <p v-if="!bindingsEnabled" class="hint">{{ t('account.bindingsDisabled') }}</p>
         <template v-else>
           <ul class="bindings">
-            <li v-for="item in accountProviders" :key="item.id" class="bindings__item">
+            <li v-for="item in accountProviders" :key="item.id" class="bindings__item"
+                :class="{ 'bindings__item--sso': item.id === 'sso' }">
               <div class="bindings__info">
-                <b><span class="bindings__mark" aria-hidden="true">{{ item.display_name.slice(0, 1) }}</span>{{ item.display_name }}</b>
+                <b>
+                  <span class="bindings__mark" :class="{ 'bindings__mark--sso': item.id === 'sso' }" aria-hidden="true">
+                    <svg v-if="item.id === 'sso'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 2 4 5v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V5z" />
+                      <path d="m9 12 2 2 4-4" />
+                    </svg>
+                    <template v-else>{{ item.display_name.slice(0, 1) }}</template>
+                  </span>
+                  {{ item.display_name }}
+                  <span v-if="item.id === 'sso'" class="bindings__badge" aria-hidden="true">SSO</span>
+                </b>
                 <small v-if="connectionOf(item.id)">
                   {{ t('account.boundAt', { date: formatDate(connectionOf(item.id)?.created_at) }) }}
                 </small>
@@ -538,6 +550,9 @@ onMounted(async () => {
 .bindings__item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 13px; border: 1px solid var(--border); background: var(--surface-raised); }
 .bindings__info b { display: flex; align-items: center; gap: 9px; font-size: 13px; }
 .bindings__mark { display: grid; width: 22px; height: 22px; place-items: center; background: var(--accent); color: var(--accent-ink); font: 700 11px 'Space Grotesk', sans-serif; }
+.bindings__item--sso { border-color: var(--accent-strong); background: var(--accent-soft-bg); }
+.bindings__mark--sso svg { width: 13px; height: 13px; }
+.bindings__badge { padding: 2px 7px; border: 1px solid var(--accent-strong); background: var(--accent-tag-bg); color: var(--accent-tag-ink); font: 700 9px 'DM Mono', monospace; letter-spacing: .12em; }
 .bindings__info small { display: block; margin-top: 4px; color: var(--text-faint); font: 10px 'DM Mono', monospace; }
 .bindings__action { min-height: 34px; padding: 0 13px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 600; transition: border-color .2s, color .2s; }
 .bindings__action:hover:not(:disabled) { border-color: var(--accent-strong); color: var(--text-strong); }
